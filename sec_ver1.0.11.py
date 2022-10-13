@@ -4,23 +4,24 @@ f.close()
 
 sentence=[]                        #리스트를 초기화 하여 sentence에 지정
 for iresult in line[1:]:           #모든줄의 리스트 요소[0번째,1번째,2번째....]중 1번째부터 세어서 개체수 만큼 반복
-  isplt=iresult.split()            #isplt의 요소를 순차적으로 문자열에서 공백을 기준으로 리스트를 분할
-  sentence.append(isplt)           #리스트 속의 리스트 작성[[],[],[]...](append함수 이용)
+  #isplt=iresult.split()            #isplt의 요소를 순차적으로 문자열에서 공백을 기준으로 리스트를 분할
+  #sentence.append(isplt)           #리스트 속의 리스트 작성[[],[],[]...](append함수 이용)
+  sentence.append(iresult) 
 senlist=sentence                   #senlist에 하나의 리스트로 변수지정
-fck=int((senlist[0][0]))           #fck설정
-fy=int((senlist[1][0]))            #fy설정
-Øc=float(senlist[2][0])            #Øc설정
-Øs=float(senlist[3][0])            #Øs설정
-Mu=float(senlist[4][0])            #Mu설정
-Vu=float(senlist[5][0])            #Vu설정
-H=float(senlist[6][0])             #단면두께 설정
-B=float(senlist[7][0])             #단면 폭 설정
-Dc=float(senlist[8][0])            #피복두께 설정
-AsDia=int(senlist[9][0])           #철근직경 설정
-AsNum=int(senlist[10][0])          #철근개수 설정
-δ=float(senlist[11][0])            #재분배 모멘트율 설정
+fck=int(senlist[0])           #fck설정
+fy=int(senlist[1])            #fy설정
+Øc=float(senlist[2])            #Øc설정
+Øs=float(senlist[3])            #Øs설정
+Mu=float(senlist[4])            #Mu설정
+Vu=float(senlist[5])            #Vu설정
+H=float(senlist[6])             #단면두께 설정
+B=float(senlist[7])             #단면 폭 설정
+Dc=float(senlist[8])            #피복두께 설정
+AsDia=int(senlist[9])           #철근직경 설정
+AsNum=int(senlist[10])          #철근개수 설정
+δ=float(senlist[11])            #재분배 모멘트율 설정
 
-
+f=open("d:/python/section_check.txt", 'w')           #d드라이브 python폴더의 section_check.txt를 출력함
 
 
 #fck=float(input("콘크리트 재료강도(fck≤40MPa)):"))    #재료강도 입력
@@ -125,7 +126,6 @@ else:
     ch5="... ∴ N.G"   
 sf=(Mr/(10**6)/Mu)    
 
-f=open("d:/python/section_check.txt", 'w')           #d드라이브 python폴더의 section_check.txt를 출력함
 f.write('◈ 직사각형 보\n\n')                          #메모장 출력
 f.write('   ▷ 검 토 조 건\n\n')                       #메모장 출력   
 f.write(f'     재 료  강 도 : fck = {fck:2.1f} MPa,     fy = {fy:2.1f} MPa\n     재료저항계수 : Øc = {Øc:2.3f},       Øs = {Øs:2.3f}\n')  #메모장 출력
