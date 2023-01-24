@@ -1,0 +1,19 @@
+입력은 등호(=)기준 한칸이상 띄우고 숫자입력(숫자만 입력) ex) fck(Mpa)= 30(O.K), fck(MPa)=   30(O.K), fck(MPa)=30(N.G) 
+※입력포멧은 변경하지 마십시요.!!(오류발생)
+fck(MPa)=       45
+fy(MPa)=        500
+Øc=            0.65
+Øs=            0.9
+Mu(kN.m)=       620
+Vu(kN)=         350
+Nu(kN)=         0.0
+Ms(kN.m)=       450
+H(mm)=          1200
+B(mm)=          400
+Dc(mm)=         100
+As,Dia(mm)=     29
+As,Num(EA)=     4
+δ=             1.0
+Av,Dia(mm)=     13
+Av,Leg(EA)=     2.0
+Av,Space(mm)=   300
