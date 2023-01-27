@@ -17,14 +17,14 @@ fname = filedialog.askopenfile(title="Open input",filetypes=[("Excel files", "*.
 wb = load_workbook(fname,read_only=False)
 
 wsin = wb['Sheet1']
-datalist = []
-datalist1 = []
-datalist2 = []
-datalist3 = []
-datalist4 = []
-datalist5 = []
-datalist6 = []
-datalist7 = []
+datalist = []  #재료특성 입력 data_rc_mat
+datalist1 = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
+datalist2 = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
+datalist3 = [] #단면제원 입력 data_sec
+datalist4 = [] #사용휨철근량 입력 data_usedas_band
+datalist5 = [] #전단철근량 및 각도 입력 data_usedas_shear
+datalist6 = [] #산정하중(극한한계상태) 입력 data_secforce_uls
+datalist7 = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
 datatp = wsin['C4:D4']                   #재료특성 입력
 for datatp1 in datatp :                  #튜플형을 리스트형으로 변환 
     for datatp2 in datatp1 :
