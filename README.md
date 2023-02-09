@@ -7,5 +7,5 @@
 강좌는 기본적인 파이썬 강좌는 아래의 URL을 참조하시기 바랍니다.
 http://www.gumifo.org/zeroboard/zboard.php?id=devtips
 
-test1
-test2 : steinbell
+![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/qteditimage.png)
+https://www.youtube.com/watch?v=VVGP1VTHxoE&t=3588s
