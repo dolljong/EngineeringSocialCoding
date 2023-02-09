@@ -18,9 +18,9 @@ http://www.gumifo.org/zeroboard/zboard.php?id=devtips
 * qteditimage.py : pyqt5 를 이용해서 글자크기, 이미지 삽입, 테이블 작성을 테스트한 파일.
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/qteditimage.png)
 
-* qtab.py : pyqt5를 이용한 tab test
+* qtab.py : pyqt5를 이용한 tab test  
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/pytab.png)
 
-* qtable1.py : pyqt5를 이용한 메뉴/icon/테이블위젯 테스트
+* qtable1.py : pyqt5를 이용한 메뉴/icon/테이블위젯 테스트  
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/pyqtable1.png)
 
