@@ -15,7 +15,7 @@ http://www.gumifo.org/zeroboard/zboard.php?id=devtips
  ssh : 심세훈 : 간단 철근량산정 (tkinter)  
  ygd : 이기동 : 철근량산정  
 
-* testmeterials.ipynb, materials.py  
+* testmaterials.ipynb, materials.py  
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/testmaterials.png)
  
 * qteditimage.py : pyqt5 를 이용해서 글자크기, 이미지 삽입, 테이블 작성을 테스트한 파일.
