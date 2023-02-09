@@ -14,6 +14,9 @@ http://www.gumifo.org/zeroboard/zboard.php?id=devtips
  seol : 설종명 부사장 : 클래스를 도입한 철근량산정 (feat.이기동 상무)  
  ssh : 심세훈 : 간단 철근량산정 (tkinter)  
  ygd : 이기동 : 철근량산정  
+
+* testmeterials.ipynb, materials.py  
+![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/testmaterials.png)
  
 * qteditimage.py : pyqt5 를 이용해서 글자크기, 이미지 삽입, 테이블 작성을 테스트한 파일.
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/qteditimage.png)
@@ -23,4 +26,5 @@ http://www.gumifo.org/zeroboard/zboard.php?id=devtips
 
 * qtable1.py : pyqt5를 이용한 메뉴/icon/테이블위젯 테스트  
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/pyqtable1.png)
+
 
