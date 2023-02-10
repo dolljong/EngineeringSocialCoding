@@ -17,7 +17,60 @@ def readxls():
     sheet = xw.sheets.active
     print(wb.name)
     print(sheet.name)    
-    return #xlsdata
+    
+    wsin = xw.sheets.active
+    #wsin = wb['Sheet1']
+    data_rc_mat = []  #재료특성 입력 data_rc_mat
+    data_mat_fac_uls = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
+    data_mat_fac_als = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
+    data_sec = [] #단면제원 입력 data_sec
+    data_usedas_band = [] #사용휨철근량 입력 data_usedas_band
+    data_usedas_shear = [] #전단철근량 및 각도 입력 data_usedas_shear
+    data_secforce_uls = [] #산정하중(극한한계상태) 입력 data_secforce_uls
+    data_secforce_als = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
+    datatp = wsin['C4:D4']                   #재료특성 입력
+    for datatp1 in datatp :                  #튜플형을 리스트형으로 변환 
+        for datatp2 in datatp1 :
+            data_rc_mat.append(datatp2.value)
+
+    datatp3 = wsin['C7:D7']                   #재료계수(극한한계상태) 입력
+    #print("datap3:",list(datatp3)) 
+    for datatp4 in datatp3 :                  #튜플형을 리스트형으로 변환 
+        for datatp5 in datatp4 :
+            data_mat_fac_uls.append(datatp5.value)
+
+    datatp6 = wsin['C8:D8']                   #재료계수(극단상황한계상태) 입력
+    for datatp7 in datatp6 :                  #튜플형을 리스트형으로 변환 
+        for datatp8 in datatp7 :
+            data_mat_fac_als.append(datatp8.value)
+    print(data_rc_mat,data_mat_fac_uls,data_mat_fac_als)
+    return
+    
+    datatp9 = wsin['C11:D11']                 #단면제원 입력
+    for datatp10 in datatp9 :                 #튜플형을 리스트형으로 변환 
+        for datatp11 in datatp10 :
+            data_sec.append(datatp11.value)
+    datatp12 = wsin['C15:K15']                 #사용휨철근량 입력  
+    for datatp13 in datatp12 :                 #튜플형을 리스트형으로 변환 
+        for datatp14 in datatp13 :
+            data_usedas_band.append(datatp14.value)
+    datatp15 = wsin['C18:H18']                 #전단철근량 및 각도 입력
+    for datatp16 in datatp15 :                 #튜플형을 리스트형으로 변환 
+        for datatp17 in datatp16 :
+            data_usedas_shear.append(datatp17.value)
+    datatp18 = wsin['C21:H21']                 #산정하중(극한한계상태) 입력
+    for datatp19 in datatp18 :                 #튜플형을 리스트형으로 변환 
+        for datatp20 in datatp19 :
+            data_secforce_uls.append(datatp20.value)
+    datatp21 = wsin['C22:H22']                 #산정하중(극단상황한계상태) 입력
+    for datatp22 in datatp21 :                 #튜플형을 리스트형으로 변환 
+        for datatp23 in datatp22 :
+            data_secforce_als.append(datatp23.value)
+    calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce_uls)
+    calc1 = Sec_back(data_rc_mat, data_matfac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce_als)
+    wb.close()
+
+    #return #xlsdata    
 
 readxls()
 
@@ -312,49 +365,49 @@ def oldfunc():
     wb = load_workbook(fname,read_only=False)
 
     wsin = wb['Sheet1']
-    datalist = []  #재료특성 입력 data_rc_mat
-    datalist1 = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
-    datalist2 = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
-    datalist3 = [] #단면제원 입력 data_sec
-    datalist4 = [] #사용휨철근량 입력 data_usedas_band
-    datalist5 = [] #전단철근량 및 각도 입력 data_usedas_shear
-    datalist6 = [] #산정하중(극한한계상태) 입력 data_secforce_uls
-    datalist7 = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
+    data_rc_mat = []  #재료특성 입력 data_rc_mat
+    data_mat_fac_uls = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
+    data_mat_fac_als = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
+    data_sec = [] #단면제원 입력 data_sec
+    data_usedas_band = [] #사용휨철근량 입력 data_usedas_band
+    data_usedas_shear = [] #전단철근량 및 각도 입력 data_usedas_shear
+    data_secforce_uls = [] #산정하중(극한한계상태) 입력 data_secforce_uls
+    data_secforce_als = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
     datatp = wsin['C4:D4']                   #재료특성 입력
     for datatp1 in datatp :                  #튜플형을 리스트형으로 변환 
         for datatp2 in datatp1 :
-            datalist.append(datatp2.value)
+            data_rc_mat.append(datatp2.value)
     datatp3 = wsin['C7:D7']                   #재료계수(극한한계상태) 입력
     print("datap3:",list(datatp3)) 
     for datatp4 in datatp3 :                  #튜플형을 리스트형으로 변환 
         for datatp5 in datatp4 :
-            datalist1.append(datatp5.value)
+            data_mat_fac_uls.append(datatp5.value)
     datatp6 = wsin['C8:D8']                   #재료계수(극단상황한계상태) 입력
     for datatp7 in datatp6 :                  #튜플형을 리스트형으로 변환 
         for datatp8 in datatp7 :
-            datalist2.append(datatp8.value)
+            data_mat_fac_als.append(datatp8.value)
     datatp9 = wsin['C11:D11']                 #단면제원 입력
     for datatp10 in datatp9 :                 #튜플형을 리스트형으로 변환 
         for datatp11 in datatp10 :
-            datalist3.append(datatp11.value)
+            data_sec.append(datatp11.value)
     datatp12 = wsin['C15:K15']                 #사용휨철근량 입력  
     for datatp13 in datatp12 :                 #튜플형을 리스트형으로 변환 
         for datatp14 in datatp13 :
-            datalist4.append(datatp14.value)
+            data_usedas_band.append(datatp14.value)
     datatp15 = wsin['C18:H18']                 #전단철근량 및 각도 입력
     for datatp16 in datatp15 :                 #튜플형을 리스트형으로 변환 
         for datatp17 in datatp16 :
-            datalist5.append(datatp17.value)
+            data_usedas_shear.append(datatp17.value)
     datatp18 = wsin['C21:H21']                 #산정하중(극한한계상태) 입력
     for datatp19 in datatp18 :                 #튜플형을 리스트형으로 변환 
         for datatp20 in datatp19 :
-            datalist6.append(datatp20.value)
+            data_secforce_uls.append(datatp20.value)
     datatp21 = wsin['C22:H22']                 #산정하중(극단상황한계상태) 입력
     for datatp22 in datatp21 :                 #튜플형을 리스트형으로 변환 
         for datatp23 in datatp22 :
-            datalist7.append(datatp23.value)
-    calc = Sec_back(datalist, datalist1, datalist3, datalist4, datalist5, datalist6)
-    calc1 = Sec_back(datalist, datalist2, datalist3, datalist4, datalist5, datalist7)
+            data_secforce_als.append(datatp23.value)
+    calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce_uls)
+    calc1 = Sec_back(data_rc_mat, data_matfac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce_als)
     wb.close()
 
     #------------------------------------
