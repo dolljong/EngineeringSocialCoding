@@ -14,9 +14,9 @@ import xlwings as xw
 
 def readxls():
     wb = xw.books.active
-    sheet = xw.sheets.active
-    print(wb.name)
-    print(sheet.name)    
+    #sheet = xw.sheets.active
+    #print(wb.name)
+    #print(sheet.name)    
     
     wsin = xw.sheets.active
     #wsin = wb['Sheet1']
@@ -28,22 +28,24 @@ def readxls():
     data_usedas_shear = [] #전단철근량 및 각도 입력 data_usedas_shear
     data_secforce_uls = [] #산정하중(극한한계상태) 입력 data_secforce_uls
     data_secforce_als = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
-    datatp = wsin['C4:D4']                   #재료특성 입력
-    for datatp1 in datatp :                  #튜플형을 리스트형으로 변환 
-        for datatp2 in datatp1 :
-            data_rc_mat.append(datatp2.value)
 
-    datatp3 = wsin['C7:D7']                   #재료계수(극한한계상태) 입력
-    #print("datap3:",list(datatp3)) 
-    for datatp4 in datatp3 :                  #튜플형을 리스트형으로 변환 
-        for datatp5 in datatp4 :
-            data_mat_fac_uls.append(datatp5.value)
+    data_rc_mat = wsin['C4:D4'].value       #재료특성 입력
 
-    datatp6 = wsin['C8:D8']                   #재료계수(극단상황한계상태) 입력
-    for datatp7 in datatp6 :                  #튜플형을 리스트형으로 변환 
-        for datatp8 in datatp7 :
-            data_mat_fac_als.append(datatp8.value)
+    data_mat_fac_uls = wsin['C7:D7'].value  #재료계수(극한한계상태) 입력
+
+    data_mat_fac_als = wsin['C8:D8'].value  #재료계수(극단상황한계상태) 입력
+
     print(data_rc_mat,data_mat_fac_uls,data_mat_fac_als)
+
+    expdata = wsin['C12'].expand('table').value
+    print(expdata)
+
+    for row in expdata:
+        data_sec = row[:2]  #단면제원 입력
+        data_usedas_band = row[2:]
+        data_usedas_shear = row[:]
+        data_secforce_uls = row[:]
+        data_secforce_als = row[:]
     return
     
     datatp9 = wsin['C11:D11']                 #단면제원 입력
