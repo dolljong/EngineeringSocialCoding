@@ -26,8 +26,8 @@ def readxls():
     data_sec = [] #단면제원 입력 data_sec
     data_usedas_band = [] #사용휨철근량 입력 data_usedas_band
     data_usedas_shear = [] #전단철근량 및 각도 입력 data_usedas_shear
-    data_secforce_uls = [] #산정하중(극한한계상태) 입력 data_secforce_uls
-    data_secforce_als = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
+    data_secforce = [] #산정하중(극한한계상태) 입력 data_secforce_uls
+    #data_secforce_als = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
 
     data_rc_mat = wsin['C4:D4'].value       #재료특성 입력
 
@@ -41,60 +41,101 @@ def readxls():
     print(expdata)
 
     for row in expdata:
-        data_sec = row[:2]  #단면제원 입력
-        data_usedas_band = row[2:]
-        data_usedas_shear = row[:]
-        data_secforce_uls = row[:]
-        data_secforce_als = row[:]
-    return
+        data_case_name = row[0]
+        data_sec = row[1:3]  #단면제원 입력
+        data_secforce = row[3:10]
+        #data_secforce_als = row[:]
+        #data_ulsorals = row[9]
+        data_usedas_band = row[10:19]
+        data_usedas_shear = row[19:25]
+
+        calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
+        wsout = wb.sheets.add(data_case_name, after= 'Sheet1')
+        wsout.activate
+        
+        #calc1.calmoment()
+        wsinit(wsout)
+
+        calc.calmoment()
+        momentexcelout(calc, wsout)
+        
+        calc.calshear()
+        shearexcelout(calc, wsout)
+
+        calc.calservice()
+        serviceexcelout(calc, wsout)
+
+
+        #print(data_case_name,data_sec,data_secforce,data_usedas_band,data_usedas_shear)
+
+    #return
     
-    datatp9 = wsin['C11:D11']                 #단면제원 입력
-    for datatp10 in datatp9 :                 #튜플형을 리스트형으로 변환 
-        for datatp11 in datatp10 :
-            data_sec.append(datatp11.value)
-    datatp12 = wsin['C15:K15']                 #사용휨철근량 입력  
-    for datatp13 in datatp12 :                 #튜플형을 리스트형으로 변환 
-        for datatp14 in datatp13 :
-            data_usedas_band.append(datatp14.value)
-    datatp15 = wsin['C18:H18']                 #전단철근량 및 각도 입력
-    for datatp16 in datatp15 :                 #튜플형을 리스트형으로 변환 
-        for datatp17 in datatp16 :
-            data_usedas_shear.append(datatp17.value)
-    datatp18 = wsin['C21:H21']                 #산정하중(극한한계상태) 입력
-    for datatp19 in datatp18 :                 #튜플형을 리스트형으로 변환 
-        for datatp20 in datatp19 :
-            data_secforce_uls.append(datatp20.value)
-    datatp21 = wsin['C22:H22']                 #산정하중(극단상황한계상태) 입력
-    for datatp22 in datatp21 :                 #튜플형을 리스트형으로 변환 
-        for datatp23 in datatp22 :
-            data_secforce_als.append(datatp23.value)
-    calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce_uls)
-    calc1 = Sec_back(data_rc_mat, data_matfac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce_als)
-    wb.close()
+    # datatp9 = wsin['C11:D11']                 #단면제원 입력
+    # for datatp10 in datatp9 :                 #튜플형을 리스트형으로 변환 
+    #     for datatp11 in datatp10 :
+    #         data_sec.append(datatp11.value)
+    # datatp12 = wsin['C15:K15']                 #사용휨철근량 입력  
+    # for datatp13 in datatp12 :                 #튜플형을 리스트형으로 변환 
+    #     for datatp14 in datatp13 :
+    #         data_usedas_band.append(datatp14.value)
+    # datatp15 = wsin['C18:H18']                 #전단철근량 및 각도 입력
+    # for datatp16 in datatp15 :                 #튜플형을 리스트형으로 변환 
+    #     for datatp17 in datatp16 :
+    #         data_usedas_shear.append(datatp17.value)
+    # datatp18 = wsin['C21:H21']                 #산정하중(극한한계상태) 입력
+    # for datatp19 in datatp18 :                 #튜플형을 리스트형으로 변환 
+    #     for datatp20 in datatp19 :
+    #         data_secforce_uls.append(datatp20.value)
+    # datatp21 = wsin['C22:H22']                 #산정하중(극단상황한계상태) 입력
+    # for datatp22 in datatp21 :                 #튜플형을 리스트형으로 변환 
+    #     for datatp23 in datatp22 :
+    #         data_secforce_als.append(datatp23.value)
+    #calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
+    #calc1 = Sec_back(data_rc_mat, data_mat_fac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
+
+    #wb.close()
 
     #return #xlsdata    
 
-readxls()
+def wsinit(wsout) :                             #워크시트 형식 초기화
+    alpalist = list(ascii_uppercase)
+    #for i in range(1,100) :                     # 헹 크기 지정
+        #wsout.row_dimensions[i].height = 15
+    wsout.range("A1:A200").row_height = 15
+    #for i in alpalist :                         # 열 크기 지정
+        #wsout.column_dimensions[i].width = 3.0
+    wsout.range("A1:Z1").column_width = 3.0
+    font_format = Font(size=9, name = '굴림체')
+    # for rows in wsout["A1":"Z200"] :            # 기본 폰트를 size=9, 굴림체로 변경
+    #     for cell in rows :
+    #         cell.font = font_format
+    wsout.range("A1:Z200").font.name = "굴림체"
+    wsout.range("A1:Z200").font.size = 9
+    # wsout.range["A1:Z100"].font.name = "굴림체"
+    # wsout.range["A1:Z100"].font.size = 9
 
 def momentexcelout(calc, wsout) :
     wsout['B2'].value = '1) 단면제원 및 설계가정'
     wsout['C3'].value ="fck = %d Mpa, fy = %d Mpa, Øc = %1.2f, Øs = %1.2f, Es = %d Mpa" %(calc.fck, calc.fy, calc.Øc, calc.Øs, calc.Es)
     for r in range(4,6) :                        # 4~5행 글짜 위치 중앙으로 정렬
         for c in range(3,24) :                      
-            wsout.cell(r,c).alignment = Alignment(horizontal='center', vertical='center')  
+            #wsout.cell(r,c).alignment = Alignment(horizontal='center', vertical='center')
+            wsout.range(r,c).alignment = Alignment(horizontal='center', vertical='center')  
     for r in range(4,6) :                        # 4~5행 테두리 그리기
         for c in range(3,24) :                      
-            wsout.cell(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
+            wsout.range(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
     for r in range(4,6) :                        # 셀 병합 C4~L4, C5~L5
         for c in [3,6,9,12] :                       
             c1 = c + 2
-            wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
+            #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
+            wsout.range((r,c), (r,c1)).merge
     for r in range(4,6) :                         # 셀 병합 O4~T4, O5~T5  
         for c in [15,20] :                          
             c1 = c + 4
-            wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)    
+            #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)  
+            wsout.range((r,c), (r, c1)).merge    
     for c in range(3,24) :                         # 셀 채우기 C4~T5
-        wsout.cell(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
+        wsout.range(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
     wsout['C4'].value = 'B(mm)'
     wsout['F4'].value = 'H(mm)'
     wsout['I4'].value = 'd(mm)'
@@ -111,7 +152,8 @@ def momentexcelout(calc, wsout) :
     wsout['T5'].number_format = '#,##0#'
     wsout['B7'].value = '2) 콘크리트 재료상수'
     for r in range(8,19) :
-        wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+        #wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+        wsout.range((r, 17), (r, 18)).merge
     wsout['C8'].value = 'n      : 상승 곡선부의 형상을 나타내는 지수'
     wsout['P8'].value = '='
     wsout['Q8'].value = calc.nε
@@ -151,7 +193,7 @@ def momentexcelout(calc, wsout) :
 
     wsout['B20'].value = '3) 철근 재료상수'
     for r in range(21,23) :
-        wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+        wsout.range((r,17), (r, 18)).merge
     wsout['C21'].value = 'fyd    : 설계인장강도 ( Φs fy )'
     wsout['P21'].value = '='
     wsout['Q21'].value = calc.fyd
@@ -438,20 +480,22 @@ def oldfunc():
         wsout['C3'].value ="fck = %d Mpa, fy = %d Mpa, Øc = %1.2f, Øs = %1.2f, Es = %d Mpa" %(calc.fck, calc.fy, calc.Øc, calc.Øs, calc.Es)
         for r in range(4,6) :                        # 4~5행 글짜 위치 중앙으로 정렬
             for c in range(3,24) :                      
-                wsout.cell(r,c).alignment = Alignment(horizontal='center', vertical='center')  
+                wsout.range(r,c).alignment = Alignment(horizontal='center', vertical='center')  
         for r in range(4,6) :                        # 4~5행 테두리 그리기
             for c in range(3,24) :                      
-                wsout.cell(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
+                wsout.range(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
         for r in range(4,6) :                        # 셀 병합 C4~L4, C5~L5
             for c in [3,6,9,12] :                       
                 c1 = c + 2
-                wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
+                #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
+                wsout.range((r,c), (r, c1)).merge
         for r in range(4,6) :                         # 셀 병합 O4~T4, O5~T5  
             for c in [15,20] :                          
                 c1 = c + 4
-                wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)    
+                #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1) 
+                wsout.range((r, c), (r,c1)).merge    
         for c in range(3,24) :                         # 셀 채우기 C4~T5
-            wsout.cell(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
+            wsout.range(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
         wsout['C4'].value = 'B(mm)'
         wsout['F4'].value = 'H(mm)'
         wsout['I4'].value = 'd(mm)'
@@ -732,3 +776,4 @@ def oldfunc():
     wb.close()
 
 #oldfunc()
+readxls()

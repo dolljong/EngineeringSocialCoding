@@ -6,8 +6,19 @@ import pandas as pd
 #    직사각형 단철근보 단면검토 (도로교설계기준 2012)
 #--------------------------------------------------
 class Sec_back:
-
+    """
+    단면검토 backend class     
+    """
     def __init__(self, datalist, datalist1, datalist2, datalist3, datalist4, datalist5):
+        """
+        생성자
+        :param datalist : [fck, fy]
+        :param datalist1 : [Øc, Øs]
+        :param datalist2 : [H, B]
+        :param datalist3 : 휨철근 정보 [dia,num,dc, dia,num,dc, dia,num,dc]
+        :param datalist4 : 전단철근 정보 [dia,num,s,sg,seta]
+        :param datalist5 : 부재력 정보 [Mu, Vu, Nu, Ms-1, Ms-5, method] 
+        """
         self.fck = datalist[0]           #fck설정
         self.fy = datalist[1]            #fy설정
         self.Øc = datalist1[0]            #Øc설정
@@ -109,6 +120,8 @@ class Sec_back:
             self.Asspace3 = self.B / self.AsNum3
 
         self.Dc = (self.Asuse1*self.AsNum1*self.Dc1 + self.Asuse2*self.AsNum2*self.Dc2 + self.Asuse3*self.AsNum3*self.Dc3)/(self.Asuse1*self.AsNum1 + self.Asuse2*self.AsNum2 + self.Asuse3*self.AsNum3)
+        self.D = self.H-self.Dc                                      #단면 유효높이
+        self.β1 = self.β * 2                                           #등가사각형 응력블록의 깊이계수
 
     def rebar(self, AsDia):                              #철근직경 함수선언
         ubarea = [71.30, 126.70, 198.60, 286.50, 387.10, 506.70, 642.40, 794.20, 956.6]
@@ -142,10 +155,10 @@ class Sec_back:
     def calmoment(self) :
         self.pmin = max(0.25*math.sqrt(self.fck)/self.fy,1.4/self.fy) #최소철근비
 
-        self.D = self.H-self.Dc                                      #단면 유효높이
+        #self.D = self.H-self.Dc                                      #단면 유효높이
         self.Asuse = self.Asuse1*self.AsNum1 + self.Asuse2*self.AsNum2 + self.Asuse3*self.AsNum3                       #전체 사용철근량
         self.ρ = self.Asuse/(self.B*self.D)                                   #사용철근비
-        self.β1 = self.β * 2                                           #등가사각형 응력블록의 깊이계수
+        #self.β1 = self.β * 2                                           #등가사각형 응력블록의 깊이계수
         self.fyd = self.fy * self.Øs                                   #철근 설계인장강도
         self.εyd = self.fyd / self.Es
         self.ta = (self.fyd**2)/(2*self.η*self.fcd*self.B)
