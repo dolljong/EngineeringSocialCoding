@@ -12,7 +12,11 @@ import xlwings as xw
 
 
 def calc_RC_section():
-    wb = xw.books.active
+    try:
+        wb = xw.books.active
+    except:
+        print("엑셀을 실행하세요")
+        return
     
     wsin = xw.sheets.active
 
