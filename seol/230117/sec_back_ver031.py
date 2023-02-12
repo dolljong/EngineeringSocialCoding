@@ -9,9 +9,9 @@ class Sec_back:
     """
     단면검토 backend class     
     """
-    def __init__(self, data_rc_mat, data_mat_fac_ulsals, data_sec, data_usedas_band, data_usedas_shear, data_secforce):
+    def __init__(self, data_rc_mat , data_mat_fac_ulsals, data_sec, data_usedas_band, data_usedas_shear, data_secforce):
         """
-        생성자
+        단면검토 class
         :param data_rc_mat : [fck, fy]
         :param data_mat_fac_ulsals : [[Øc, Øs],[Øc, Øs]]
         :param data_sec : [H, B]
@@ -21,8 +21,8 @@ class Sec_back:
         """
         self.fck = data_rc_mat[0]           #fck설정
         self.fy = data_rc_mat[1]            #fy설정
-        self.Øc = data_mat_fac_ulsals[0][0]            #Øc설정
-        self.Øs = data_mat_fac_ulsals[0][1]            #Øs설정
+        # self.Øc = data_mat_fac_ulsals[0][0]            #Øc설정
+        # self.Øs = data_mat_fac_ulsals[0][1]            #Øs설정
         self.H = data_sec[0]             #단면두께 설정
         self.B = data_sec[1]             #단면 폭 설정
         self.AsDia1 = data_usedas_band[0]       #1단 철근직경 설정
@@ -47,6 +47,12 @@ class Sec_back:
         self.Ms5 = data_secforce[4]            #Ms-5설정
         self.crid = data_secforce[5]           #사용성검토방법 설정
         self.ulsals = data_secforce[6]          #극한한계 or 극단상황한계
+        if self.ulsals == "극한한계":
+            self.Øc = data_mat_fac_ulsals[0][0]            #Øc설정
+            self.Øs = data_mat_fac_ulsals[0][1]            #Øs설정
+        else:
+            self.Øc = data_mat_fac_ulsals[1][0]            #Øc설정
+            self.Øs = data_mat_fac_ulsals[1][1]            #Øs설정                
         self.δ = 1                                #재분배 모멘트율 설정
         self.Es = 200000                          #철근의 탄성계수
         self.Mun = self.Mu*1000000
@@ -124,7 +130,12 @@ class Sec_back:
         self.D = self.H-self.Dc                                      #단면 유효높이
         self.β1 = self.β * 2                                           #등가사각형 응력블록의 깊이계수
 
-    def rebar(self, AsDia):                              #철근직경 함수선언
+    def rebar(self, AsDia : int) -> float :                              #철근직경 함수선언
+        """
+        rebar area
+        :param AsDia : Dia of rebar (mm)
+        :returns float : Area of rebar(mm2)
+        """
         ubarea = [71.30, 126.70, 198.60, 286.50, 387.10, 506.70, 642.40, 794.20, 956.6]
         if AsDia == 10:                                  #사용철근 1개당 단면적
             As = ubarea[0]
@@ -148,7 +159,7 @@ class Sec_back:
             As = 0
         return(As)    
     
-    
+
 #------------------------------
 #          휨모멘트 검토
 #------------------------------

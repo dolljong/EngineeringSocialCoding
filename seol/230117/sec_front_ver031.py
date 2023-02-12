@@ -11,8 +11,7 @@ from tkinter import filedialog
 import xlwings as xw
 
 
-
-def readxls():
+def calc_RC_section():
     wb = xw.books.active
     
     wsin = xw.sheets.active
@@ -48,6 +47,7 @@ def readxls():
         data_usedas_shear = row[19:25]
 
         calc = Sec_back(data_rc_mat, data_mat_fac_ulsals, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
+        
         wsout = wb.sheets.add(data_case_name, after= lastsheetname)
         wsout.activate
         
@@ -65,39 +65,8 @@ def readxls():
         lastsheetname = data_case_name
 
 
-        #print(data_case_name,data_sec,data_secforce,data_usedas_band,data_usedas_shear)
-
-    #return
-    
-    # datatp9 = wsin['C11:D11']                 #단면제원 입력
-    # for datatp10 in datatp9 :                 #튜플형을 리스트형으로 변환 
-    #     for datatp11 in datatp10 :
-    #         data_sec.append(datatp11.value)
-    # datatp12 = wsin['C15:K15']                 #사용휨철근량 입력  
-    # for datatp13 in datatp12 :                 #튜플형을 리스트형으로 변환 
-    #     for datatp14 in datatp13 :
-    #         data_usedas_band.append(datatp14.value)
-    # datatp15 = wsin['C18:H18']                 #전단철근량 및 각도 입력
-    # for datatp16 in datatp15 :                 #튜플형을 리스트형으로 변환 
-    #     for datatp17 in datatp16 :
-    #         data_usedas_shear.append(datatp17.value)
-    # datatp18 = wsin['C21:H21']                 #산정하중(극한한계상태) 입력
-    # for datatp19 in datatp18 :                 #튜플형을 리스트형으로 변환 
-    #     for datatp20 in datatp19 :
-    #         data_secforce_uls.append(datatp20.value)
-    # datatp21 = wsin['C22:H22']                 #산정하중(극단상황한계상태) 입력
-    # for datatp22 in datatp21 :                 #튜플형을 리스트형으로 변환 
-    #     for datatp23 in datatp22 :
-    #         data_secforce_als.append(datatp23.value)
-    #calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
-    #calc1 = Sec_back(data_rc_mat, data_mat_fac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
-
-    #wb.close()
-
-    #return #xlsdata    
-
 def wsinit(wsout) :                             #워크시트 형식 초기화
-    alpalist = list(ascii_uppercase)
+    #alpalist = list(ascii_uppercase)
     #for i in range(1,100) :                     # 헹 크기 지정
         #wsout.row_dimensions[i].height = 15
     wsout.range("A1:A200").row_height = 15
@@ -797,4 +766,5 @@ def oldfunc():
     wb.close()
 
 #oldfunc()
-readxls()
+calc_RC_section()
+
