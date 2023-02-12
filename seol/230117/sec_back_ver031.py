@@ -9,43 +9,44 @@ class Sec_back:
     """
     단면검토 backend class     
     """
-    def __init__(self, datalist, datalist1, datalist2, datalist3, datalist4, datalist5):
+    def __init__(self, data_rc_mat, data_mat_fac_ulsals, data_sec, data_usedas_band, data_usedas_shear, data_secforce):
         """
         생성자
-        :param datalist : [fck, fy]
-        :param datalist1 : [Øc, Øs]
-        :param datalist2 : [H, B]
-        :param datalist3 : 휨철근 정보 [dia,num,dc, dia,num,dc, dia,num,dc]
-        :param datalist4 : 전단철근 정보 [dia,num,s,sg,seta]
-        :param datalist5 : 부재력 정보 [Mu, Vu, Nu, Ms-1, Ms-5, method] 
+        :param data_rc_mat : [fck, fy]
+        :param data_mat_fac_ulsals : [[Øc, Øs],[Øc, Øs]]
+        :param data_sec : [H, B]
+        :param data_usedas_band : 휨철근 정보 [dia,num,dc, dia,num,dc, dia,num,dc]
+        :param data_usedas_shear : 전단철근 정보 [dia,num,s,sg,seta]
+        :param data_secforce : 부재력 정보 [Mu, Vu, Nu, Ms-1, Ms-5, method] 
         """
-        self.fck = datalist[0]           #fck설정
-        self.fy = datalist[1]            #fy설정
-        self.Øc = datalist1[0]            #Øc설정
-        self.Øs = datalist1[1]            #Øs설정
-        self.H = datalist2[0]             #단면두께 설정
-        self.B = datalist2[1]             #단면 폭 설정
-        self.AsDia1 = datalist3[0]       #1단 철근직경 설정
-        self.AsNum1 = datalist3[1]       #1단 철근개수 설정
-        self.Dc1 = datalist3[2]          #1단 피복두께 설정
-        self.AsDia2 = datalist3[3]       #2단 철근직경 설정
-        self.AsNum2 = datalist3[4]       #2단 철근개수 설정
-        self.Dc2 = datalist3[5]          #2단 피복두께 설정
-        self.AsDia3 = datalist3[6]       #3단 철근직경 설정
-        self.AsNum3 = datalist3[7]       #3단 철근개수 설정
-        self.Dc3 = datalist3[8]          #3단 피복두께 설정
-        self.AvDia = datalist4[0]        #전단철근 직경
-        self.AvLeg = datalist4[1]        #전단철근 다리개수
-        self.AvSpace = datalist4[2]      #전단철근 배치간격
-        self.sg = datalist4[3]           #복부스트럿 각도 입력방법 선택
-        self.seta = datalist4[4]         #복부스트럿 각도 직접입력값
-        self.αv = datalist4[5]           #전단철근과 주철근 각도(주철근으로부터 시계방향각도)
-        self.Mu = datalist5[0]            #Mu설정
-        self.Vu = datalist5[1]            #Vu설정  
-        self.Nu = datalist5[2]            #Nu설정
-        self.Ms1 = datalist5[3]            #Ms-1설정
-        self.Ms5 = datalist5[4]            #Ms-5설정
-        self.crid = datalist5[5]           #사용성검토방법 설정
+        self.fck = data_rc_mat[0]           #fck설정
+        self.fy = data_rc_mat[1]            #fy설정
+        self.Øc = data_mat_fac_ulsals[0][0]            #Øc설정
+        self.Øs = data_mat_fac_ulsals[0][1]            #Øs설정
+        self.H = data_sec[0]             #단면두께 설정
+        self.B = data_sec[1]             #단면 폭 설정
+        self.AsDia1 = data_usedas_band[0]       #1단 철근직경 설정
+        self.AsNum1 = data_usedas_band[1]       #1단 철근개수 설정
+        self.Dc1 = data_usedas_band[2]          #1단 피복두께 설정
+        self.AsDia2 = data_usedas_band[3]       #2단 철근직경 설정
+        self.AsNum2 = data_usedas_band[4]       #2단 철근개수 설정
+        self.Dc2 = data_usedas_band[5]          #2단 피복두께 설정
+        self.AsDia3 = data_usedas_band[6]       #3단 철근직경 설정
+        self.AsNum3 = data_usedas_band[7]       #3단 철근개수 설정
+        self.Dc3 = data_usedas_band[8]          #3단 피복두께 설정
+        self.AvDia = data_usedas_shear[0]        #전단철근 직경
+        self.AvLeg = data_usedas_shear[1]        #전단철근 다리개수
+        self.AvSpace = data_usedas_shear[2]      #전단철근 배치간격
+        self.sg = data_usedas_shear[3]           #복부스트럿 각도 입력방법 선택
+        self.seta = data_usedas_shear[4]         #복부스트럿 각도 직접입력값
+        self.αv = data_usedas_shear[5]           #전단철근과 주철근 각도(주철근으로부터 시계방향각도)
+        self.Mu = data_secforce[0]            #Mu설정
+        self.Vu = data_secforce[1]            #Vu설정  
+        self.Nu = data_secforce[2]            #Nu설정
+        self.Ms1 = data_secforce[3]            #Ms-1설정
+        self.Ms5 = data_secforce[4]            #Ms-5설정
+        self.crid = data_secforce[5]           #사용성검토방법 설정
+        self.ulsals = data_secforce[6]          #극한한계 or 극단상황한계
         self.δ = 1                                #재분배 모멘트율 설정
         self.Es = 200000                          #철근의 탄성계수
         self.Mun = self.Mu*1000000

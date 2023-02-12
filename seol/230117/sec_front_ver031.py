@@ -5,7 +5,7 @@ from string import ascii_uppercase
 from openpyxl.styles.fonts import Font
 from openpyxl.styles import Border, Side, Alignment, PatternFill
 from openpyxl.styles.colors import Color
-from sec_back_ver03 import *
+from sec_back_ver031 import *
 from tkinter import filedialog
 
 import xlwings as xw
@@ -14,15 +14,12 @@ import xlwings as xw
 
 def readxls():
     wb = xw.books.active
-    #sheet = xw.sheets.active
-    #print(wb.name)
-    #print(sheet.name)    
     
     wsin = xw.sheets.active
-    #wsin = wb['Sheet1']
+
     data_rc_mat = []  #재료특성 입력 data_rc_mat
-    data_mat_fac_uls = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
-    data_mat_fac_als = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
+    data_mat_fac_ulsals = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
+    #data_mat_fac_als = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
     data_sec = [] #단면제원 입력 data_sec
     data_usedas_band = [] #사용휨철근량 입력 data_usedas_band
     data_usedas_shear = [] #전단철근량 및 각도 입력 data_usedas_shear
@@ -31,14 +28,14 @@ def readxls():
 
     data_rc_mat = wsin['C4:D4'].value       #재료특성 입력
 
-    data_mat_fac_uls = wsin['C7:D7'].value  #재료계수(극한한계상태) 입력
+    data_mat_fac_ulsals = wsin['C7:D8'].value  #재료계수(극한한계상태) 입력
 
-    data_mat_fac_als = wsin['C8:D8'].value  #재료계수(극단상황한계상태) 입력
+    #data_mat_fac_als = wsin['C8:D8'].value  #재료계수(극단상황한계상태) 입력
 
-    print(data_rc_mat,data_mat_fac_uls,data_mat_fac_als)
+    #print(data_rc_mat,data_mat_fac_uls,data_mat_fac_als)
 
     expdata = wsin['C12'].expand('table').value
-    print(expdata)
+    #print(expdata)
 
     lastsheetname="Sheet1"
     for row in expdata:
@@ -50,7 +47,7 @@ def readxls():
         data_usedas_band = row[10:19]
         data_usedas_shear = row[19:25]
 
-        calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
+        calc = Sec_back(data_rc_mat, data_mat_fac_ulsals, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
         wsout = wb.sheets.add(data_case_name, after= lastsheetname)
         wsout.activate
         
@@ -107,7 +104,7 @@ def wsinit(wsout) :                             #워크시트 형식 초기화
     #for i in alpalist :                         # 열 크기 지정
         #wsout.column_dimensions[i].width = 3.0
     wsout.range("A1:Z1").column_width = 3.0
-    font_format = Font(size=9, name = '굴림체')
+    #font_format = Font(size=9, name = '굴림체')
     # for rows in wsout["A1":"Z200"] :            # 기본 폰트를 size=9, 굴림체로 변경
     #     for cell in rows :
     #         cell.font = font_format
@@ -473,7 +470,7 @@ def oldfunc():
         for datatp23 in datatp22 :
             data_secforce_als.append(datatp23.value)
     calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce_uls)
-    calc1 = Sec_back(data_rc_mat, data_matfac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce_als)
+    calc1 = Sec_back(data_rc_mat, data_mat_fac_als, data_sec, data_usedas_band, data_usedas_shear, data_secforce_als)
     wb.close()
 
     #------------------------------------
