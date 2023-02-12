@@ -40,6 +40,7 @@ def readxls():
     expdata = wsin['C12'].expand('table').value
     print(expdata)
 
+    lastsheetname="Sheet1"
     for row in expdata:
         data_case_name = row[0]
         data_sec = row[1:3]  #단면제원 입력
@@ -50,10 +51,9 @@ def readxls():
         data_usedas_shear = row[19:25]
 
         calc = Sec_back(data_rc_mat, data_mat_fac_uls, data_sec, data_usedas_band, data_usedas_shear, data_secforce)
-        wsout = wb.sheets.add(data_case_name, after= 'Sheet1')
+        wsout = wb.sheets.add(data_case_name, after= lastsheetname)
         wsout.activate
         
-        #calc1.calmoment()
         wsinit(wsout)
 
         calc.calmoment()
@@ -64,6 +64,8 @@ def readxls():
 
         calc.calservice()
         serviceexcelout(calc, wsout)
+
+        lastsheetname = data_case_name
 
 
         #print(data_case_name,data_sec,data_secforce,data_usedas_band,data_usedas_shear)
@@ -117,25 +119,45 @@ def wsinit(wsout) :                             #워크시트 형식 초기화
 def momentexcelout(calc, wsout) :
     wsout['B2'].value = '1) 단면제원 및 설계가정'
     wsout['C3'].value ="fck = %d Mpa, fy = %d Mpa, Øc = %1.2f, Øs = %1.2f, Es = %d Mpa" %(calc.fck, calc.fy, calc.Øc, calc.Øs, calc.Es)
-    for r in range(4,6) :                        # 4~5행 글짜 위치 중앙으로 정렬
-        for c in range(3,24) :                      
-            #wsout.cell(r,c).alignment = Alignment(horizontal='center', vertical='center')
-            wsout.range(r,c).alignment = Alignment(horizontal='center', vertical='center')  
-    for r in range(4,6) :                        # 4~5행 테두리 그리기
-        for c in range(3,24) :                      
-            wsout.range(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
+
     for r in range(4,6) :                        # 셀 병합 C4~L4, C5~L5
         for c in [3,6,9,12] :                       
             c1 = c + 2
             #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
-            wsout.range((r,c), (r,c1)).merge
+            wsout.range((r,c), (r,c1)).merge()
+
     for r in range(4,6) :                         # 셀 병합 O4~T4, O5~T5  
         for c in [15,20] :                          
             c1 = c + 4
             #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)  
-            wsout.range((r,c), (r, c1)).merge    
-    for c in range(3,24) :                         # 셀 채우기 C4~T5
-        wsout.range(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
+            wsout.range((r,c), (r, c1)).merge()   
+
+    # for r in range(4,6) :                        # 4~5행 글짜 위치 중앙으로 정렬
+    #     for c in range(3,24) :                      
+    #         #wsout.cell(r,c).alignment = Alignment(horizontal='center', vertical='center')
+    #         wsout.range(r,c).api.HorizontalAlignment = xw.constants.Constants.xlCenter 
+    wsout.range("C4:X5").api.HorizontalAlignment = xw.constants.Constants.xlCenter 
+    
+    # for r in range(4,6) :                        # 4~5행 테두리 그리기
+    #     for c in range(3,24) :                      
+    #         wsout.range(r,c).border = Border(left=Side(border_style='thin'),right=Side(border_style='thin'),top=Side(border_style='thin'),bottom=Side(border_style='thin'))
+    bordertop = xw.constants.BordersIndex.xlEdgeTop
+    borderbottom = xw.constants.BordersIndex.xlEdgeBottom
+    borderleft = xw.constants.BordersIndex.xlEdgeLeft
+    borderright = xw.constants.BordersIndex.xlEdgeRight
+    borderinsideH = xw.constants.BordersIndex.xlInsideHorizontal
+    borderinsideV = xw.constants.BordersIndex.xlInsideVertical
+    wsout.range("C4:X5").api.Borders(bordertop).Weight = 4
+    wsout.range("C4:X5").api.Borders(borderbottom).Weight = 4
+    wsout.range("C4:X5").api.Borders(borderleft).Weight = 4
+    wsout.range("C4:X5").api.Borders(borderright).Weight = 4 
+    wsout.range("C4:X5").api.Borders(borderinsideH).Weight = 2 
+    wsout.range("C4:X5").api.Borders(borderinsideV).Weight = 2
+ 
+    # for c in range(3,24) :                         # 셀 채우기 C4~T5
+    #     wsout.range(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
+    wsout.range("C4:X4").color = (0,255,255)
+
     wsout['C4'].value = 'B(mm)'
     wsout['F4'].value = 'H(mm)'
     wsout['I4'].value = 'd(mm)'
@@ -153,7 +175,7 @@ def momentexcelout(calc, wsout) :
     wsout['B7'].value = '2) 콘크리트 재료상수'
     for r in range(8,19) :
         #wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
-        wsout.range((r, 17), (r, 18)).merge
+        wsout.range((r, 17), (r, 18)).merge()
     wsout['C8'].value = 'n      : 상승 곡선부의 형상을 나타내는 지수'
     wsout['P8'].value = '='
     wsout['Q8'].value = calc.nε
@@ -193,7 +215,7 @@ def momentexcelout(calc, wsout) :
 
     wsout['B20'].value = '3) 철근 재료상수'
     for r in range(21,23) :
-        wsout.range((r,17), (r, 18)).merge
+        wsout.range((r,17), (r, 18)).merge()
     wsout['C21'].value = 'fyd    : 설계인장강도 ( Φs fy )'
     wsout['P21'].value = '='
     wsout['Q21'].value = calc.fyd
@@ -488,12 +510,12 @@ def oldfunc():
             for c in [3,6,9,12] :                       
                 c1 = c + 2
                 #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1)
-                wsout.range((r,c), (r, c1)).merge
+                wsout.range((r,c), (r, c1)).merge()
         for r in range(4,6) :                         # 셀 병합 O4~T4, O5~T5  
             for c in [15,20] :                          
                 c1 = c + 4
                 #wsout.merge_cells(start_row=r, start_column=c, end_row=r, end_column=c1) 
-                wsout.range((r, c), (r,c1)).merge    
+                wsout.range((r, c), (r,c1)).merge()    
         for c in range(3,24) :                         # 셀 채우기 C4~T5
             wsout.range(4,c).fill = PatternFill(fill_type='solid', fgColor='0000FFFF')
         wsout['C4'].value = 'B(mm)'
@@ -512,7 +534,8 @@ def oldfunc():
         wsout['T5'].number_format = '#,##0#'
         wsout['B7'].value = '2) 콘크리트 재료상수'
         for r in range(8,19) :
-            wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+            #wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+            wsout.range((r,17),(r,18)).merge()
         wsout['C8'].value = 'n      : 상승 곡선부의 형상을 나타내는 지수'
         wsout['P8'].value = '='
         wsout['Q8'].value = calc.nε
@@ -552,7 +575,8 @@ def oldfunc():
 
         wsout['B20'].value = '3) 철근 재료상수'
         for r in range(21,23) :
-            wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+            #wsout.merge_cells(start_row=r, start_column=17, end_row=r, end_column=18)
+            wsout.range((r, 17), (r,18)).merge()
         wsout['C21'].value = 'fyd    : 설계인장강도 ( Φs fy )'
         wsout['P21'].value = '='
         wsout['Q21'].value = calc.fyd
