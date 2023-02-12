@@ -6,31 +6,27 @@ from openpyxl.styles.fonts import Font
 from openpyxl.styles import Border, Side, Alignment, PatternFill
 from openpyxl.styles.colors import Color
 from sec_back_ver03 import *
-from tkinter import filedialog
 
 #--------------------------------------------------
 #    직사각형 단철근보 단면검토 (도로교설계기준 2012)
 #--------------------------------------------------
 
 #wb = load_workbook("D:/Python/Excel/Calc_As_input_3.0.xlsx",read_only=False)
-fname = filedialog.askopenfile(title="Open input",filetypes=[("Excel files", "*.xlsx")]).name
-wb = load_workbook(fname,read_only=False)
-
+wb = load_workbook("D:/dev/esc/seol/230117/Calc_As_input_3.0.xlsx",read_only=False)
 wsin = wb['Sheet1']
-datalist = []  #재료특성 입력 data_rc_mat
-datalist1 = [] #재료계수(극한한계상태) 입력 data_matfac_uls 
-datalist2 = [] #재료계수(극단상황한계상태) 입력 data_matfac_als
-datalist3 = [] #단면제원 입력 data_sec
-datalist4 = [] #사용휨철근량 입력 data_usedas_band
-datalist5 = [] #전단철근량 및 각도 입력 data_usedas_shear
-datalist6 = [] #산정하중(극한한계상태) 입력 data_secforce_uls
-datalist7 = [] #산정하중(극단상황한계상태) 입력 data_secforce_als
+datalist = []
+datalist1 = []
+datalist2 = []
+datalist3 = []
+datalist4 = []
+datalist5 = []
+datalist6 = []
+datalist7 = []
 datatp = wsin['C4:D4']                   #재료특성 입력
 for datatp1 in datatp :                  #튜플형을 리스트형으로 변환 
     for datatp2 in datatp1 :
         datalist.append(datatp2.value)
-datatp3 = wsin['C7:D7']                   #재료계수(극한한계상태) 입력
-print("datap3:",list(datatp3)) 
+datatp3 = wsin['C7:D7']                   #재료계수(극한한계상태) 입력 
 for datatp4 in datatp3 :                  #튜플형을 리스트형으로 변환 
     for datatp5 in datatp4 :
         datalist1.append(datatp5.value)
@@ -376,7 +372,5 @@ def vexcelsheet(calc, wsout) :
             wsout['C142'].value =" - 철근 한계응력 : MAX(%4.1f, %4.1f) < fs = %4.1f N/mm²  ∴ N.G" %(calc.fsad, calc.fsas, calc.fs5)
 
 vexcelsheet(calc, wsout)   
-wfname = filedialog.asksaveasfile(title="Save result",filetypes=[("Excel files", "*.xlsx")]).name
-wb.save(wfname)
-#wb.save('Calc_As_Output_3.0.xlsx')
+wb.save('Calc_As_Output_3.0.xlsx')
 wb.close()
