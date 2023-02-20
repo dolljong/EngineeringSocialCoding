@@ -1,5 +1,13 @@
 class ConcMaterial:
+    '''
+      concrete material class
+    '''
     def __init__(self, f_ck, m_c=2300):
+        '''
+        initialize instance 
+        :param f_ck : f_ck of concrete (MPa)
+        :param m_c : unit weight of concerete(kg/m3)
+        '''
         self.f_ck = f_ck
         self.f_cm = self.calc_f_cm(f_ck)
         self.E_c = self.calc_E_c(f_ck, m_c)["val"]
