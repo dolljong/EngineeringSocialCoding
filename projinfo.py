@@ -8,6 +8,15 @@ class ProjectInfo:
         self.sitename = sitename
         self.contractor = contractor
 
+    def __str__(self):
+        return f"""
+* 과업명 : {self.projname}
+* 발주처 : {self.client}
+* 설계사 : {self.engfirm}
+* 현장명 : {self.sitename}
+* 시공사 : {self.contractor}
+        """ 
+
 
 if __name__=="__main__":
 
@@ -20,3 +29,4 @@ if __name__=="__main__":
     print(proj1.engfirm)
     print(proj1.sitename)
     print(proj1.contractor)
+    print(proj1.__str__())
