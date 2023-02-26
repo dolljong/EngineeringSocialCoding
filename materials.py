@@ -1,3 +1,5 @@
+from math import sin, pi
+
 class ConcMaterial:
     '''
       concrete material class
@@ -58,8 +60,33 @@ class TendonMaterial:
     def __str__(self):
         return f"E_ps = {self.E_ps}"
     
-    
+class SoilMaterial:
+    def __init__(self,gamma_t,phi):
+        """
+        Args:
+            gamma_t (float) : unit weight (total) of soil (kN/m3)
+            phi (float) : angle of internal friction (degree)
 
+        Attributes:
+            gamma_sub (float) : unit weight (submerged) of soil (kN/m3)
+            phirad (float) : phi radian (radian)
+            coef_epressa (float) : ka earth pressure coefficient (active)
+            coef_epressp (float) : kp earth pressure coefficient (passive)
+            coef_epresso (float) : ko earth pressure coefficient (at rest)
+
+        """
+        self.gamma_t = gamma_t
+        self.phi = phi
+        self.phirad = phi / 180 * pi
+        self.gamma_sub = gamma_t - 10.0
+        self.coef_epressa = (1-sin(self.phirad))/(1+sin(self.phirad)) 
+        self.coef_epressp = (1+sin(self.phirad))/(1-sin(self.phirad)) 
+        self.coef_epresso = 1 - sin(self.phirad)
+        self.coef_epressa_txt = f"(1 - sin({self.phi})) / (1 + sin({self.phi})) = {self.coef_epressa}"
+        self.coef_epressp_txt = f"(1 + sin({self.phi})) / (1 - sin({self.phi})) = {self.coef_epressp}"
+        self.coef_epresso_txt = f"1 - sin({self.phi}) = {self.coef_epresso}"
+        
+    
 if __name__=="__main__":
 
     conc30 = ConcMaterial(f_ck=30)
@@ -82,4 +109,7 @@ if __name__=="__main__":
     print(conc45)
 
     print(conc30.latex())
+
+    soil30 = SoilMaterial(gamma_t=20, phi=30)
+    print(soil30.__dict__)
 

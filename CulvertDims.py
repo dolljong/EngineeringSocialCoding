@@ -2,8 +2,9 @@ import json
 
 class CulvertDims:
     #__spanlist = []
-    def __init__(self,nspan=1,clearanceb=4.5, clearanceh=4.5,
-                 lwallt=0.3, mwallt=0.25, rwallt=0.3, tslabt=0.3, bslabt=0.3):
+    def __init__(self,nspan,clearanceb, clearanceh,
+                 lwallt, mwallt, rwallt, tslabt,bslabt,
+                 soildepth,watertable):
         """
         Culvert Dimensions
         
@@ -15,6 +16,8 @@ class CulvertDims:
         :param rwallt : thickness of right wall (m)
         :param tslabt : thickness of top slab (m)
         :param bslabt : thickness of bottom slab (m) 
+        :param soildepth : depth of soil from slab top to surface
+        :param watertable : water table from surface
         """
         self.nspan = nspan
         self.clearanceb=clearanceb
@@ -23,6 +26,8 @@ class CulvertDims:
         self.rwallt = rwallt
         self.tslabt = tslabt
         self.bslabt = bslabt
+        self.soildepth = soildepth
+        self.watertable = watertable
         #self.__spanlist = []
         self.mwallt= mwallt
         self.totalb = self.nspan*self.clearanceb + \
@@ -41,7 +46,9 @@ class CulvertDims:
     
 if __name__=="__main__":
 
-    clv1dims = CulvertDims(nspan=2)
+    clv1dims = CulvertDims(nspan=2,clearanceb=4.5,clearanceh=4.5,
+                           lwallt=0.4, mwallt=0.4, rwallt=0.4,tslabt=0.45,bslabt=0.45,
+                           watertable=2,soildepth=3)
     clv1dims.__spanlist = [4.5,4.5]
     #clv1dims.set_spanlist=[4.5,4.5]
     #clv1dims.mwallt =[]
