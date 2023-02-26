@@ -1,7 +1,7 @@
 from Materials import SoilMaterial
 #
 
-def earthpressure(gamma_t,phi,waterz,z,eptype) -> float: 
+def earthpressure(gamma_t:float,phi:float,waterz:float,z:float,eptype:str) -> float: 
     """
     Args:
         gamma_t (float) : unit weight (total) of soil (kN/m3)
@@ -28,7 +28,7 @@ def earthpressure(gamma_t,phi,waterz,z,eptype) -> float:
     return {"val": coef_epressure , "txt": txt}
 
 if __name__=="__main__":
-
     coefep = earthpressure(gamma_t=20,phi=30,waterz=1.0,z=5.0,eptype="o")
     print(coefep["val"],coefep["txt"])
+    
     

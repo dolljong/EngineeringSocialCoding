@@ -4,13 +4,14 @@ class ConcMaterial:
     '''
       concrete material class
     '''
-    def __init__(self, f_ck, m_c=2300):
+    def __init__(self, f_ck:float, m_c:float=2300):
         '''
         initialize instance 
         :param f_ck : f_ck of concrete (MPa)
-        :param m_c : unit weight of concerete(kg/m3)
+        :param m_c : unit weight of concrete(kg/m3) default:2300
         '''
         self.f_ck = f_ck
+        self.m_c = m_c
         self.f_cm = self.calc_f_cm(f_ck)
         self.E_c = self.calc_E_c(f_ck, m_c)["val"]
         self.E_c_latex = self.calc_E_c(f_ck, m_c)["latex"]
