@@ -20,7 +20,9 @@ def earthpressure(gamma_t:float,phi:float,waterz:float,z:float,eptype:EarthPress
         eptype (EarthPressureType) : ACTIVE / PASSIVE / ATREST
 
     Returns:
-        epressure : earth pressure (kN/m2)
+        { "val" : epressure, "txt" : txt}
+        epressure : earth pressure (kN/m2) : float
+        txt : equation : str
 
     """
 
@@ -48,6 +50,7 @@ def earthpressure(gamma_t:float,phi:float,waterz:float,z:float,eptype:EarthPress
         
     return {"val": epressure , "txt": txt}
 
+
 if __name__=="__main__":
     earthmat = SoilMaterial(gamma_t=20, phi=30)
     
@@ -66,6 +69,8 @@ if __name__=="__main__":
         print(epress["txt"])
 
     print(epresstxtdic)
+
+
         
 
          
