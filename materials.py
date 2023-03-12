@@ -83,9 +83,9 @@ class SoilMaterial:
         self.coef_epressa = (1-sin(self.phirad))/(1+sin(self.phirad)) 
         self.coef_epressp = (1+sin(self.phirad))/(1-sin(self.phirad)) 
         self.coef_epresso = 1 - sin(self.phirad)
-        self.coef_epressa_txt = f"(1 - sin({self.phi})) / (1 + sin({self.phi})) = {self.coef_epressa}"
-        self.coef_epressp_txt = f"(1 + sin({self.phi})) / (1 - sin({self.phi})) = {self.coef_epressp}"
-        self.coef_epresso_txt = f"1 - sin({self.phi}) = {self.coef_epresso}"
+        self.coef_epressa_txt = f"ka = (1 - sin({self.phi})) / (1 + sin({self.phi})) = {self.coef_epressa}"
+        self.coef_epressp_txt = f"kp = (1 + sin({self.phi})) / (1 - sin({self.phi})) = {self.coef_epressp}"
+        self.coef_epresso_txt = f"ko = 1 - sin({self.phi}) = {self.coef_epresso}"
         
     
 if __name__=="__main__":
