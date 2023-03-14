@@ -51,6 +51,29 @@ def earthpressure(gamma_t:float,phi:float,waterz:float,z:float,eptype:EarthPress
     return {"val": epressure , "txt": txt}
 
 
+def surface_live(D : float, B_o : float ):
+    """
+    노면활하중(kN/m2) KDS 291400 table 4.1-4
+    param : D : depth (m)
+    param : B_o : width of span (m)
+    return 
+    """
+    surflive_table1={1.0: 39.0, 1.5:25.0, 2.0:18.0, 2.5:14.0, 3.0:11.0, 3.5:10.0}
+    surflive_table2={0.1: 17.0, 0.2:27.0 , 0.3:33.0, 0.4:36.0}
+    DoverB_o = D /B_o
+    if DoverB_o >= 0.5:
+        if D >= 3.5: 
+            p_v1 = 10.0
+        else:
+            p_v1=surflive_table1[int(D/0.5)*0.5]     
+    else:
+        if DoverB_o >=0.4:
+            p_v1=36.0/D
+        else:
+            p_v1=surflive_table2[round(int(DoverB_o/0.1)*0.1,1)]/D
+    return p_v1
+
+
 if __name__=="__main__":
     earthmat = SoilMaterial(gamma_t=20, phi=30)
     
@@ -70,6 +93,8 @@ if __name__=="__main__":
 
     print(epresstxtdic)
 
+    print(surface_live(D=3.0, B_o=3.0))
+    print(surface_live(D=1.0, B_o=3.0))
 
         
 
