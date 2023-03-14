@@ -53,7 +53,7 @@ def earthpressure(gamma_t:float,phi:float,waterz:float,z:float,eptype:EarthPress
 
 def surface_live(D : float, B_o : float ):
     """
-    노면활하중(kN/m2) KDS 291400 table 4.1-4
+    노면활하중(kN/m2) KDS 291400 table 4.1-4, table 4.1-5
     param : D : depth (m)
     param : B_o : width of span (m)
     return 

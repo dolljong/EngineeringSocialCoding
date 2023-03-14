@@ -1,4 +1,5 @@
 from math import sin, pi
+import pandas as pd
 
 class ConcMaterial:
     '''
@@ -86,8 +87,90 @@ class SoilMaterial:
         self.coef_epressa_txt = f"ka = (1 - sin({self.phi})) / (1 + sin({self.phi})) = {self.coef_epressa}"
         self.coef_epressp_txt = f"kp = (1 + sin({self.phi})) / (1 - sin({self.phi})) = {self.coef_epressp}"
         self.coef_epresso_txt = f"ko = 1 - sin({self.phi}) = {self.coef_epresso}"
-        
-    
+
+class SteelMaterial:
+    """
+    Steel Material : KDS 143105 Table 3.4-1
+    """
+    def __init__(self,steelgrade: str, thick: int):
+        steelgrades_1    =["SS235","SS275","SM275","SMA275","SS315","SM355","SMA355","SS410","SM420","SS450","SM460","SMA460","SS550"]
+        Fylist_1_16mm    =[    235,    275,    275,     275,    315,    355,     355,    410,    420,    450,    460,     460,    550]
+        Fylist_1_16_40mm =[    225,    265,    265,     265,    305,    345,     345,    400,    410,    440,    450,     450,    540]
+        Fylist_1_40_75mm =[    205,    245,    255,     255,    295,    335,     335,    None,   400,   None,    430,     430,   None]
+        Fylist_1_75_100mm =[    205,    245,    245,     245,    295,    325,     325,   None,   390,   None,    420,     420,   None]
+        Fylist_1_100mm    =[    195,    235,    235,     235,    275,    305,     305,   None,   380,   None,   None,    None,   None]
+        Fulist_1          =[    330,    410,    410,     410,    490,    490,     490,    540,   520,    590,    570,     570,    690]  
+
+        steelgrades_2 =["HSB380","HSM500","HSB460","HSB690","HSA650","SM275-TMC","SM355-TMC","SM420-TMC","SM460-TMC"]
+        Fylist_2_100mm  =[   380,     380,     460,     690,     650,        275,        355,        420,        460]
+        Fulist_2        =[   500,     500,     600,     800,     800,        410,        490,        520,        570]
+        steelgrades_3 =["SN275","SN355","SN460","SHN275","SHN355","SHN420","SHN460"]
+        Fylist_3_40mm     =[   275,     355,    460,     275,     355,     420,     460]
+        Fylist_3_40_100mm =[   255,     335,    440,     275,     355,     420,     460]
+        Fulist_3          =[   410,     490,    570,     410,     490,     520,     570]
+
+        #df1 = pd.DataFrame([steelgrades_1])
+        #df1.loc[len(df1.index)] = Fylist_1_16mm
+        df1 = pd.DataFrame([Fylist_1_16mm],columns=steelgrades_1)
+        df1.loc[len(df1.index)] = Fylist_1_16_40mm
+        df1.loc[len(df1.index)] = Fylist_1_40_75mm
+        df1.loc[len(df1.index)] = Fylist_1_75_100mm
+        df1.loc[len(df1.index)] = Fylist_1_100mm
+        df1.loc[len(df1.index)] = Fulist_1
+
+        df2=pd.DataFrame([Fylist_2_100mm],columns=steelgrades_2)
+        df2.loc[len(df2.index)] = Fulist_2
+
+        df3=pd.DataFrame([Fylist_3_40mm],columns=steelgrades_3)
+        df3.loc[len(df3.index)] = Fylist_3_40_100mm
+        df3.loc[len(df3.index)] = Fulist_3
+
+        self.steel_mat_table1=df1
+        self.steel_mat_table2=df2
+        self.steel_mat_table3=df3
+
+        if steelgrade in steelgrades_1:
+            #print("grade1")
+            if thick <= 16:
+                thickindex = 0
+            elif thick > 16 and thick < 40:
+                thickindex = 1
+            elif thick > 40 and thick < 75:
+                thickindex = 2
+            elif thick > 75 and thick < 100:
+                thickindex = 3
+            else:
+                thickindex = 4
+            self.F_y = df1.loc[thickindex,steelgrade]
+            self.F_u = df1.loc[5,steelgrade]
+        elif steelgrade in steelgrades_2:
+            #print("grade2")
+            self.F_y = df2.loc[0,steelgrade]
+            self.F_u = df2.loc[1,steelgrade]
+        else:
+            #print("grade3")
+            if thick > 6 and thick <= 40:
+                thickindex = 0
+                print(f"thickindex:{thickindex}")
+            elif thick > 40 and thick < 100:
+                thickindex = 1
+            #print(f"thickindex:{thickindex}")
+            self.F_y = df3.loc[thickindex,steelgrade]
+            self.F_u = df3.loc[2,steelgrade]
+            
+        #self.F_y = 0
+        #self.F_u = 0
+
+class PipeMaterial:
+    """
+    Steel Pipe Material : KDS 143105 3.4-2
+
+    """
+
+class BoltMaterial:
+    """
+    Bolt Material : KDS 143105 3.4-4
+    """    
 if __name__=="__main__":
 
     conc30 = ConcMaterial(f_ck=30)
@@ -114,3 +197,5 @@ if __name__=="__main__":
     soil30 = SoilMaterial(gamma_t=20, phi=30)
     print(soil30.__dict__)
 
+    steelmat1= SteelMaterial(steelgrade="SM275",thick=10)
+    print(f"Fy:{steelmat1.F_y:.0f} Fu:{steelmat1.F_u:.0f}")
