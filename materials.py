@@ -104,13 +104,12 @@ class SteelMaterial:
         steelgrades_2 =["HSB380","HSM500","HSB460","HSB690","HSA650","SM275-TMC","SM355-TMC","SM420-TMC","SM460-TMC"]
         Fylist_2_100mm  =[   380,     380,     460,     690,     650,        275,        355,        420,        460]
         Fulist_2        =[   500,     500,     600,     800,     800,        410,        490,        520,        570]
+
         steelgrades_3 =["SN275","SN355","SN460","SHN275","SHN355","SHN420","SHN460"]
         Fylist_3_40mm     =[   275,     355,    460,     275,     355,     420,     460]
         Fylist_3_40_100mm =[   255,     335,    440,     275,     355,     420,     460]
         Fulist_3          =[   410,     490,    570,     410,     490,     520,     570]
 
-        #df1 = pd.DataFrame([steelgrades_1])
-        #df1.loc[len(df1.index)] = Fylist_1_16mm
         df1 = pd.DataFrame([Fylist_1_16mm],columns=steelgrades_1)
         df1.loc[len(df1.index)] = Fylist_1_16_40mm
         df1.loc[len(df1.index)] = Fylist_1_40_75mm
@@ -151,7 +150,6 @@ class SteelMaterial:
             #print("grade3")
             if thick > 6 and thick <= 40:
                 thickindex = 0
-                print(f"thickindex:{thickindex}")
             elif thick > 40 and thick < 100:
                 thickindex = 1
             #print(f"thickindex:{thickindex}")
@@ -164,8 +162,44 @@ class SteelMaterial:
 class PipeMaterial:
     """
     Steel Pipe Material : KDS 143105 3.4-2
-
     """
+    def __init__(self, pipegrade: str, thick: int):
+        pipegrades_1    =["SGT275","SRT275","STP275","SGT355","SRT355","STP355","SGT410","SRT410","STP380","STKM500","SGT450","SRT450","STP450"]
+        Fylist_1        =[     275,     275,     275,     355,     355,     355,     410,     410,     380,      380,    450,     450,      450]
+        Fulist_1        =[     410,     410,     410,     500,     500,     500,     540,     540,     500,      500,    590,     590,      590]
+        pipegrades_1   +=["SGT550","SRT550","STP550","SHT410","SHT460","SKY400","SKY490"]
+        Fylist_1       +=[     550,     550,     550,     410,     460,     235,     315]
+        Fulist_1       +=[     690,     690,     690,     550,     590,     400,     490]     
+
+        pipegrades_2      =["SNT275E","SNT275A","SNT355E","SNT355A","SNT460E","SNT460A","SNRT295E","SNRT360E","SNRT275A","SNRT355A"]
+        Fylist_2_40mm     =[     275,      275,      355,      355,      460,      460,       295,      360,       275,      355]
+        Fylist_2_40_100mm =[     255,      255,      335,      335,      440,      440,      None,     None,      None,     None]
+        Fulist_2          =[     410,      410,      490,      490,      570,      570,       410,      490,       410,      490]
+
+
+        df1 = pd.DataFrame([Fylist_1],columns=pipegrades_1)
+        df1.loc[len(df1.index)] = Fulist_1
+
+        df2=pd.DataFrame([Fylist_2_40mm],columns=pipegrades_2)
+        df2.loc[len(df2.index)] = Fylist_2_40_100mm
+        df2.loc[len(df2.index)] = Fulist_2
+
+        self.pipe_mat_table1 = df1
+        self.pipe_mat_table2 = df2
+
+        if pipegrade in pipegrades_1:
+            #print("grade1")
+            self.F_y = df1.loc[0,pipegrade]
+            self.F_u = df1.loc[1,pipegrade]
+        else:
+            #print("grade3")
+            if thick <= 40:
+                thickindex = 0
+            elif thick > 40 and thick < 100:
+                thickindex = 1
+            #print(f"thickindex:{thickindex}")
+            self.F_y = df2.loc[thickindex,pipegrade]
+            self.F_u = df2.loc[2,pipegrade]
 
 class BoltMaterial:
     """
@@ -199,3 +233,6 @@ if __name__=="__main__":
 
     steelmat1= SteelMaterial(steelgrade="SM275",thick=10)
     print(f"Fy:{steelmat1.F_y:.0f} Fu:{steelmat1.F_u:.0f}")
+
+    pipemat1= PipeMaterial(pipegrade="SGT355",thick=10)
+    print(f"Fy:{pipemat1.F_y:.0f} Fu:{pipemat1.F_u:.0f}")
