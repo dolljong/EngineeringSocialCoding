@@ -27,4 +27,6 @@ http://www.gumifo.org/zeroboard/zboard.php?id=devtips
 * pyqt_test/qtable1.py : pyqt5를 이용한 메뉴/icon/테이블위젯 테스트  
 ![img](https://github.com/dolljong/EngineeringSocialCoding/blob/main/img/pyqtable1.png)
 
+test
+
 

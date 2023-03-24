@@ -2,7 +2,7 @@ import json
 
 class CulvertDims:
     #__spanlist = []
-    def __init__(self,nspan,clearanceb, clearanceh,
+    def __init__(self,nspan:int,clearanceb, clearanceh,
                  lwallt, mwallt, rwallt, tslabt,bslabt,
                  soildepth,watertable):
         """
