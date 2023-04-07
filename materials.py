@@ -48,10 +48,17 @@ class ConcMaterial:
           
                 
 class RebarMaterial:
+    '''
+      Rebar material class
+    '''
     def __init__(self,f_y):
+        '''
+        initialize instance 
+        :param f_y : f_y of rebar (MPa)
+        '''
         self.f_y = f_y
         self.E_s = 200000
-        
+
     def __str__(self):
         return f"f_y = {self.f_y}, E_s = {self.E_s}"
 
