@@ -17,7 +17,7 @@ class CulvertDims:
         :param tslabt : thickness of top slab (m)
         :param bslabt : thickness of bottom slab (m) 
         :param soildepth : depth of soil from slab top to surface
-        :param watertable : water table from surface
+        :param watertable : water table from surface(ex: 1.0)
         """
         self.nspan = nspan
         self.clearanceb=clearanceb
