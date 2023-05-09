@@ -3,8 +3,8 @@ import inspect
 import pprint
 
 
-from Materials import *
-from ProjInfo import *
+from materials import *
+from projinfo import *
 
 def instance2json(listobj , file_path):
     #file_path = "./test.json"
