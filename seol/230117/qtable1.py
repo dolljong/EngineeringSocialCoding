@@ -5,7 +5,56 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
 
-#class MyApp(QWidget):
+class AlignDelegate(QtWidgets.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super(AlignDelegate, self).initStyleOption(option, index)
+        option.displayAlignment = QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight
+
+class ComboBoxDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super(ComboBoxDelegate, self).__init__(parent)
+        self.items = ['13', '16', '19', '22', '25', '29', '32', '35']
+
+    def createEditor(self, parent, option, index):
+        editor = QComboBox(parent)
+        editor.addItems(self.items)
+        editor.setEditable(True)
+        editor.lineEdit().setAlignment(Qt.AlignCenter)
+        editor.setStyleSheet("QComboBox { text-align: center; }")
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.EditRole)
+        if value:
+            editor.setCurrentText(str(value))
+
+    def setModelData(self, editor, model, index):
+        value = editor.currentText()
+        model.setData(index, value, Qt.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+    def paint(self, painter, option, index):
+        if not self.parent().indexWidget(index):
+            self.parent().setIndexWidget(
+                index,
+                self.createEditor(self.parent().viewport(), option, index)
+            )
+        super(ComboBoxDelegate, self).paint(painter, option, index)
+
+class CustomHeaderView(QHeaderView):
+    def __init__(self, orientation, parent=None):
+        super(CustomHeaderView, self).__init__(orientation, parent)
+        self.setSectionsClickable(True)
+        self.setSortIndicatorShown(True)
+
+    def sectionSizeHint(self, logicalIndex):
+        size = super(CustomHeaderView, self).sectionSizeHint(logicalIndex)
+        if self.orientation() == Qt.Horizontal:
+            return max(size, self.fontMetrics().width(self.model().headerData(logicalIndex, Qt.Horizontal, Qt.DisplayRole)) + 20)
+        return size
+
 class MyApp(QMainWindow):
 
     def __init__(self):
@@ -77,7 +126,7 @@ class MyApp(QMainWindow):
         tab2 = QWidget()
 
         tabs = QTabWidget()
-        tabs.addTab(tab1, 'Tab1')
+        tabs.addTab(tab1, 'RC section')
         tabs.addTab(tab2, 'Tab2')
         
         # vbox = QVBoxLayout()
@@ -121,7 +170,12 @@ class MyApp(QMainWindow):
         self.tableWidget1.setColumnCount(5)
         self.tableWidget1.setHorizontalHeaderLabels(['fck(MPa)','fy(MPa)','Øc','Øs',''])
         self.tableWidget1.verticalHeader().hide()
-        self.tableWidget1.setFixedSize(660, 80)
+        header1 = CustomHeaderView(Qt.Horizontal, self.tableWidget1)
+        self.tableWidget1.setHorizontalHeader(header1)
+        self.tableWidget1.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.tableWidget1.horizontalHeader().setStretchLastSection(True)
+
+        self.tableWidget1.setFixedSize(660, 110)
         self.tableWidget1.resizeColumnsToContents()
         stylesheet = "::section{Background-color:rgb(245,245,245)}"
         self.tableWidget1.horizontalHeader().setStyleSheet(stylesheet)
@@ -138,7 +192,9 @@ class MyApp(QMainWindow):
         self.tableWidget.setRowCount(20)
         self.tableWidget.setColumnCount(15)
         self.tableWidget.setHorizontalHeaderLabels(['Name','Mu\n(kN.m)','Vu\n(kN)','Nu\n(kN)', 'Ms\n(kN.m)','H\n(mm)','B\n(mm)','Dc\n(mm)', 'As_Dia\n(mm)', 'As_Num\n(EA)','δ', 'Av_Dia\n(mm)','Av_Leg\n(EA)', 'Av_Space\n(mm)',''])
-        #self.tableWidget.horizontalHeader().setDefaultSectionSize(50)
+        header = CustomHeaderView(Qt.Horizontal, self.tableWidget)
+        self.tableWidget.setHorizontalHeader(header)
+        self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.setFixedSize(1700,300)
         #self.tableWidget.setFixedWidth(1700)
@@ -173,12 +229,19 @@ class MyApp(QMainWindow):
         self.tableWidget.horizontalHeader().setStyleSheet(stylesheet)
         self.tableWidget.verticalHeader().setStyleSheet(stylesheet)
         
-        #self.tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # self.tableWidget.setEditTriggers(QAbstractItemView.DoubleClicked)
-        #self.tableWidget.setEditTriggers(QAbstractItemView.AllEditTriggers)
+        combo_delegate = ComboBoxDelegate(self.tableWidget)
+        self.tableWidget.setItemDelegateForColumn(8, combo_delegate)  # 8은 As_Dia 열의 인덱스
 
-        #self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # self.tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        align_delegate = AlignDelegate(self.tableWidget)
+        for icol in range(15):
+            if icol != 8:  # As_Dia 열(8번)을 제외한 모든 열에 AlignDelegate 적용
+                self.tableWidget.setItemDelegateForColumn(icol, align_delegate)
+
+        for row in range(self.tableWidget.rowCount()):
+            self.tableWidget.setItem(row, 8, QTableWidgetItem('13')) 
+
+        for row in range(self.tableWidget.rowCount()):
+            self.tableWidget.openPersistentEditor(self.tableWidget.item(row, 8))                
 
         samplematdata=['35','400','0.65','0.7']
         for j in range(4):
@@ -198,16 +261,12 @@ class MyApp(QMainWindow):
         layout.addWidget(self.tableWidget1)
         layout.addWidget(label)
         layout.addLayout(self.hbox)
-        # layout.addWidget(self.cbforces)
-        # layout.addWidget(self.cbsecinfo)
+
         layout.addWidget(self.tableWidget)
-        
-        # layout.setStretchFactor(label1,1)
-        # layout.setStretchFactor(self.tableWidget1,2)
-        # layout.setStretchFactor(label1,1)
-        # layout.setStretchFactor(self.tableWidget,0)
-              
-        #self.setLayout(layout)
+        layout.addStretch(1)
+
+        # layout.setAlignment(Qt.AlignTop)
+
         self.setCentralWidget(widget)
 
         self.setWindowTitle('QTableWidget')
