@@ -4,7 +4,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QIcon, QFont
 from PyQt5.QtCore import Qt
 from sec_back_ver031 import Sec_back
-from sec_front_ver031 import get_moment_text, get_shear_text, get_service_text, get_full_calc_text
+from sec_front_ver031 import (get_moment_text, get_shear_text, get_service_text, get_full_calc_text,
+                              wsinit, momentexcelout, shearexcelout, serviceexcelout)
+import xlwings as xw
 
 
 class CalcViewerDialog(QDialog):
@@ -607,11 +609,8 @@ class MyApp(QMainWindow):
             print(f'Error: {e}')
 
     def export_to_excel(self):
-        """계산결과를 Excel로 내보내기"""
+        """계산결과를 Excel로 내보내기 (xlwings + sec_front_ver031 함수 사용)"""
         try:
-            from openpyxl import Workbook
-            from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
-
             # 파일 저장 경로 선택
             filename, _ = QFileDialog.getSaveFileName(
                 self, '저장', 'RC_Section_Calc.xlsx', 'Excel Files (*.xlsx)'
@@ -619,18 +618,8 @@ class MyApp(QMainWindow):
             if not filename:
                 return
 
-            wb = Workbook()
-            ws_summary = wb.active
-            ws_summary.title = "요약"
-
-            # 요약 시트 헤더
-            headers = ['Name', 'Mu(kN.m)', 'Vu(kN)', 'Nu(kN)', 'Ms(kN.m)',
-                      'H(mm)', 'B(mm)', 'Dc(mm)', 'As_Dia', 'As_Num',
-                      'As_req(mm2)', 'As_used(mm2)', 'Ratio', 'Result']
-            for col, header in enumerate(headers, 1):
-                cell = ws_summary.cell(row=1, column=col, value=header)
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal='center')
+            # xlwings로 새 워크북 생성
+            wb = xw.Book()
 
             # 재료 데이터 읽기
             fck = float(self.tableWidget1.item(0, 0).text())
@@ -641,7 +630,9 @@ class MyApp(QMainWindow):
             datalist = [fck, fy]
             datalist1 = [Oc, Os]
 
-            row_num = 2
+            lastsheetname = wb.sheets[0].name
+            first_section = True
+
             for row in range(self.tableWidget.rowCount()):
                 name_item = self.tableWidget.item(row, 0)
                 if name_item is None or name_item.text().strip() == '':
@@ -680,55 +671,40 @@ class MyApp(QMainWindow):
                 datalist4 = [int(Av_Dia), int(Av_Leg), Av_Space, 3, 0, 90]
                 datalist5 = [Mu, Vu, Nu, Ms, Ms, 1]
 
+                # Sec_back 객체 생성 및 계산
                 sec = Sec_back(datalist, datalist1, datalist2, datalist3, datalist4, datalist5)
                 sec.δ = delta
                 sec.calmoment()
                 sec.calshear()
                 sec.calservice()
 
-                As_req = sec.Asreq
-                As_used = sec.Asuse
-                ratio = As_used / As_req if As_req > 0 else 0
-                result = "O.K" if ratio >= 1.0 else "N.G"
+                # 새 시트 생성 (시트명은 30자 제한)
+                sheet_name = section_name[:30]
+                wsout = wb.sheets.add(sheet_name, after=lastsheetname)
 
-                # 요약 시트에 데이터 기록
-                ws_summary.cell(row=row_num, column=1, value=section_name)
-                ws_summary.cell(row=row_num, column=2, value=Mu)
-                ws_summary.cell(row=row_num, column=3, value=Vu)
-                ws_summary.cell(row=row_num, column=4, value=Nu)
-                ws_summary.cell(row=row_num, column=5, value=Ms)
-                ws_summary.cell(row=row_num, column=6, value=H)
-                ws_summary.cell(row=row_num, column=7, value=B)
-                ws_summary.cell(row=row_num, column=8, value=Dc)
-                ws_summary.cell(row=row_num, column=9, value=As_Dia)
-                ws_summary.cell(row=row_num, column=10, value=As_Num)
-                ws_summary.cell(row=row_num, column=11, value=round(As_req, 1))
-                ws_summary.cell(row=row_num, column=12, value=round(As_used, 1))
-                ws_summary.cell(row=row_num, column=13, value=round(ratio, 3))
-                result_cell = ws_summary.cell(row=row_num, column=14, value=result)
-                if result == "N.G":
-                    result_cell.font = Font(color="FF0000", bold=True)
+                # sec_front_ver031의 함수들 사용
+                wsinit(wsout)
+                momentexcelout(sec, wsout)
+                shearexcelout(sec, wsout)
+                serviceexcelout(sec, wsout)
 
-                # 상세 계산과정 시트 생성
-                ws_detail = wb.create_sheet(title=section_name[:30])
-                from sec_front_ver031 import get_full_calc_text
-                calc_text = get_full_calc_text(sec)
-                for line_num, line in enumerate(calc_text.split('\n'), 1):
-                    ws_detail.cell(row=line_num, column=1, value=line)
-                ws_detail.column_dimensions['A'].width = 80
+                lastsheetname = sheet_name
+                first_section = False
 
-                row_num += 1
+            # 기본 시트 삭제 (데이터가 있는 경우)
+            if not first_section:
+                try:
+                    wb.sheets[0].delete()
+                except:
+                    pass
 
-            # 열 너비 조정
-            for col in range(1, 15):
-                ws_summary.column_dimensions[chr(64+col)].width = 12
-
+            # 파일 저장 및 닫기
             wb.save(filename)
+            wb.close()
+
             QMessageBox.information(self, '저장 완료', f'Excel 파일이 저장되었습니다:\n{filename}')
             self.statusBar().showMessage(f'Excel 저장 완료: {filename}')
 
-        except ImportError:
-            QMessageBox.warning(self, '경고', 'openpyxl 라이브러리가 필요합니다.\npip install openpyxl')
         except Exception as e:
             QMessageBox.critical(self, '오류', f'Excel 저장 오류: {str(e)}')
             print(f'Error: {e}')
