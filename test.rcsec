@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "material": {
+    "fck": 35.0,
+    "fy": 400.0,
+    "Oc": 0.85,
+    "Os": 0.85
+  },
+  "sections": [
+    {
+      "name": "Center",
+      "forces": {
+        "Mu": 100.0,
+        "Vu": 50.0,
+        "Nu": 5.0,
+        "Ms": 80.0
+      },
+      "geometry": {
+        "H": 800.0,
+        "B": 1000.0,
+        "Dc": 80.0
+      },
+      "flexure_rebar": {
+        "dia": 25.0,
+        "num": 8.0
+      },
+      "delta": 1.0,
+      "shear_rebar": {
+        "dia": 16.0,
+        "leg": 2.0,
+        "space": 400.0
+      }
+    },
+    {
+      "name": "Top 슬래브",
+      "forces": {
+        "Mu": 1000.0,
+        "Vu": 50.0,
+        "Nu": 5.0,
+        "Ms": 800.0
+      },
+      "geometry": {
+        "H": 900.0,
+        "B": 1000.0,
+        "Dc": 100.0
+      },
+      "flexure_rebar": {
+        "dia": 29.0,
+        "num": 8.0
+      },
+      "delta": 1.0,
+      "shear_rebar": {
+        "dia": 22.0,
+        "leg": 2.0,
+        "space": 300.0
+      }
+    }
+  ]
+}

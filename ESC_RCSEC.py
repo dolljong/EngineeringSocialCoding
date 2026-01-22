@@ -1,4 +1,5 @@
 import sys
+import json
 from PyQt5.QtWidgets import *
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QIcon, QFont
@@ -159,6 +160,10 @@ class MyApp(QMainWindow):
 
         # file menu action
         self.new_action = QAction("New")
+        self.open_action = QAction("Open")
+        self.open_action.triggered.connect(self.load_file)
+        self.save_action = QAction("Save")
+        self.save_action.triggered.connect(self.save_file)
         self.quit_action = QAction("Quit")
         self.quit_action.triggered.connect(self.close)
         
@@ -180,6 +185,8 @@ class MyApp(QMainWindow):
         # file menu
         file_menu = self.menubar.addMenu("파일")
         file_menu.addAction(self.new_action)
+        file_menu.addAction(self.open_action)
+        file_menu.addAction(self.save_action)
         file_menu.addSeparator()
         file_menu.addAction(self.quit_action)
         
@@ -707,6 +714,152 @@ class MyApp(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, '오류', f'Excel 저장 오류: {str(e)}')
+            print(f'Error: {e}')
+
+    def save_file(self):
+        """입력 데이터를 .rcsec 파일로 저장"""
+        try:
+            filename, _ = QFileDialog.getSaveFileName(
+                self, '저장', '', 'RC Section Files (*.rcsec)'
+            )
+            if not filename:
+                return
+
+            if not filename.endswith('.rcsec'):
+                filename += '.rcsec'
+
+            # 재료 데이터 수집
+            material = {
+                "fck": float(self.tableWidget1.item(0, 0).text()) if self.tableWidget1.item(0, 0) else 35,
+                "fy": float(self.tableWidget1.item(0, 1).text()) if self.tableWidget1.item(0, 1) else 400,
+                "Oc": float(self.tableWidget1.item(0, 2).text()) if self.tableWidget1.item(0, 2) else 0.65,
+                "Os": float(self.tableWidget1.item(0, 3).text()) if self.tableWidget1.item(0, 3) else 0.7
+            }
+
+            # 부재 데이터 수집
+            sections = []
+            for row in range(self.tableWidget.rowCount()):
+                name_item = self.tableWidget.item(row, 0)
+                if name_item is None or name_item.text().strip() == '':
+                    continue
+
+                def get_value(row, col, default=0):
+                    item = self.tableWidget.item(row, col)
+                    if item is None or item.text().strip() == '':
+                        return default
+                    try:
+                        return float(item.text())
+                    except ValueError:
+                        return default
+
+                section = {
+                    "name": name_item.text(),
+                    "forces": {
+                        "Mu": get_value(row, 1),
+                        "Vu": get_value(row, 2),
+                        "Nu": get_value(row, 3),
+                        "Ms": get_value(row, 4)
+                    },
+                    "geometry": {
+                        "H": get_value(row, 5),
+                        "B": get_value(row, 6),
+                        "Dc": get_value(row, 7)
+                    },
+                    "flexure_rebar": {
+                        "dia": get_value(row, 8, 13),
+                        "num": get_value(row, 9)
+                    },
+                    "delta": get_value(row, 10, 1),
+                    "shear_rebar": {
+                        "dia": get_value(row, 11, 10),
+                        "leg": get_value(row, 12, 2),
+                        "space": get_value(row, 13, 300)
+                    }
+                }
+                sections.append(section)
+
+            # JSON 구조 생성
+            data = {
+                "version": "1.0",
+                "material": material,
+                "sections": sections
+            }
+
+            # 파일 저장
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+            QMessageBox.information(self, '저장 완료', f'파일이 저장되었습니다:\n{filename}')
+            self.statusBar().showMessage(f'저장 완료: {filename}')
+
+        except Exception as e:
+            QMessageBox.critical(self, '오류', f'파일 저장 오류: {str(e)}')
+            print(f'Error: {e}')
+
+    def load_file(self):
+        """".rcsec 파일에서 데이터 불러오기"""
+        try:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, '열기', '', 'RC Section Files (*.rcsec)'
+            )
+            if not filename:
+                return
+
+            with open(filename, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            # 버전 체크 (향후 확장 대비)
+            version = data.get("version", "1.0")
+
+            # 재료 데이터 로드
+            material = data.get("material", {})
+            self.tableWidget1.setItem(0, 0, QTableWidgetItem(str(material.get("fck", 35))))
+            self.tableWidget1.setItem(0, 1, QTableWidgetItem(str(material.get("fy", 400))))
+            self.tableWidget1.setItem(0, 2, QTableWidgetItem(str(material.get("Oc", 0.65))))
+            self.tableWidget1.setItem(0, 3, QTableWidgetItem(str(material.get("Os", 0.7))))
+
+            # 기존 테이블 데이터 클리어
+            for row in range(self.tableWidget.rowCount()):
+                for col in range(self.tableWidget.columnCount()):
+                    self.tableWidget.setItem(row, col, QTableWidgetItem(''))
+
+            # 부재 데이터 로드
+            sections = data.get("sections", [])
+            for row, section in enumerate(sections):
+                if row >= self.tableWidget.rowCount():
+                    break
+
+                self.tableWidget.setItem(row, 0, QTableWidgetItem(section.get("name", "")))
+
+                forces = section.get("forces", {})
+                self.tableWidget.setItem(row, 1, QTableWidgetItem(str(forces.get("Mu", 0))))
+                self.tableWidget.setItem(row, 2, QTableWidgetItem(str(forces.get("Vu", 0))))
+                self.tableWidget.setItem(row, 3, QTableWidgetItem(str(forces.get("Nu", 0))))
+                self.tableWidget.setItem(row, 4, QTableWidgetItem(str(forces.get("Ms", 0))))
+
+                geometry = section.get("geometry", {})
+                self.tableWidget.setItem(row, 5, QTableWidgetItem(str(geometry.get("H", 0))))
+                self.tableWidget.setItem(row, 6, QTableWidgetItem(str(geometry.get("B", 0))))
+                self.tableWidget.setItem(row, 7, QTableWidgetItem(str(geometry.get("Dc", 0))))
+
+                flexure = section.get("flexure_rebar", {})
+                self.tableWidget.setItem(row, 8, QTableWidgetItem(str(int(flexure.get("dia", 13)))))
+                self.tableWidget.setItem(row, 9, QTableWidgetItem(str(flexure.get("num", 0))))
+
+                self.tableWidget.setItem(row, 10, QTableWidgetItem(str(section.get("delta", 1))))
+
+                shear = section.get("shear_rebar", {})
+                self.tableWidget.setItem(row, 11, QTableWidgetItem(str(int(shear.get("dia", 10)))))
+                self.tableWidget.setItem(row, 12, QTableWidgetItem(str(shear.get("leg", 2))))
+                self.tableWidget.setItem(row, 13, QTableWidgetItem(str(shear.get("space", 300))))
+
+            QMessageBox.information(self, '불러오기 완료', f'파일을 불러왔습니다:\n{filename}')
+            self.statusBar().showMessage(f'불러오기 완료: {filename}')
+
+        except json.JSONDecodeError as e:
+            QMessageBox.critical(self, '오류', f'파일 형식 오류: {str(e)}')
+        except Exception as e:
+            QMessageBox.critical(self, '오류', f'파일 불러오기 오류: {str(e)}')
             print(f'Error: {e}')
 
 class AlignDelegate(QtWidgets.QStyledItemDelegate):
