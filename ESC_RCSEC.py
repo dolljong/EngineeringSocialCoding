@@ -256,6 +256,8 @@ class MyApp(QMainWindow):
         self.open_action.triggered.connect(self.load_file)
         self.save_action = QAction("Save")
         self.save_action.triggered.connect(self.save_file)
+        self.export_text_action = QAction("Export to Text")
+        self.export_text_action.triggered.connect(self.export_to_text)
         self.quit_action = QAction("Quit")
         self.quit_action.triggered.connect(self.close)
         
@@ -279,6 +281,8 @@ class MyApp(QMainWindow):
         file_menu.addAction(self.new_action)
         file_menu.addAction(self.open_action)
         file_menu.addAction(self.save_action)
+        file_menu.addSeparator()
+        file_menu.addAction(self.export_text_action)
         file_menu.addSeparator()
         file_menu.addAction(self.quit_action)
         
@@ -806,6 +810,111 @@ class MyApp(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, '오류', f'Excel 저장 오류: {str(e)}')
+            print(f'Error: {e}')
+
+    def export_to_text(self):
+        """계산결과 전체를 텍스트 파일로 내보내기"""
+        try:
+            # 파일 저장 경로 선택
+            filename, _ = QFileDialog.getSaveFileName(
+                self, '텍스트 파일로 저장', 'RC_Section_Calc.txt', 'Text Files (*.txt)'
+            )
+            if not filename:
+                return
+
+            # 재료 데이터 읽기
+            fck = float(self.tableWidget1.item(0, 0).text())
+            fy = float(self.tableWidget1.item(0, 1).text())
+            Oc = float(self.tableWidget1.item(0, 2).text())
+            Os = float(self.tableWidget1.item(0, 3).text())
+
+            datalist = [fck, fy]
+            datalist1 = [Oc, Os]
+
+            # 전체 텍스트 결과 저장
+            all_text = []
+            all_text.append("=" * 80)
+            all_text.append("RC 단면 검토 계산서")
+            all_text.append("=" * 80)
+            all_text.append("")
+            all_text.append(f"재료 물성:")
+            all_text.append(f"  - 콘크리트 설계기준강도 fck = {fck} MPa")
+            all_text.append(f"  - 철근 항복강도 fy = {fy} MPa")
+            all_text.append(f"  - 콘크리트 강도감소계수 Øc = {Oc}")
+            all_text.append(f"  - 철근 강도감소계수 Øs = {Os}")
+            all_text.append("")
+
+            section_count = 0
+            for row in range(self.tableWidget.rowCount()):
+                name_item = self.tableWidget.item(row, 0)
+                if name_item is None or name_item.text().strip() == '':
+                    continue
+
+                section_name = name_item.text()
+
+                def get_value(row, col, default=0):
+                    item = self.tableWidget.item(row, col)
+                    if item is None or item.text().strip() == '':
+                        return default
+                    try:
+                        return float(item.text())
+                    except ValueError:
+                        return default
+
+                Mu = get_value(row, 1)
+                Vu = get_value(row, 2)
+                Nu = get_value(row, 3)
+                Ms = get_value(row, 4)
+                H = get_value(row, 5)
+                B = get_value(row, 6)
+                Dc = get_value(row, 7)
+                As_Dia = get_value(row, 8, 13)
+                As_Num = get_value(row, 9)
+                delta = get_value(row, 10, 1)
+                Av_Dia = get_value(row, 11, 10)
+                Av_Leg = get_value(row, 12, 2)
+                Av_Space = get_value(row, 13, 300)
+
+                if H <= 0 or B <= 0:
+                    continue
+
+                datalist2 = [H, B]
+                datalist3 = [int(As_Dia), int(As_Num), Dc, 0, 0, 0, 0, 0, 0]
+                datalist4 = [int(Av_Dia), int(Av_Leg), Av_Space, 3, 0, 90]
+                datalist5 = [Mu, Vu, Nu, Ms, Ms, 1]
+
+                # Sec_back 객체 생성 및 계산
+                sec = Sec_back(datalist, datalist1, datalist2, datalist3, datalist4, datalist5)
+                sec.δ = delta
+                sec.calmoment()
+                sec.calshear()
+                sec.calservice()
+
+                # 단면별 구분선 및 제목
+                all_text.append("")
+                all_text.append("=" * 80)
+                all_text.append(f"[{section_name}]")
+                all_text.append("=" * 80)
+                all_text.append("")
+
+                # 전체 계산과정 텍스트 추가
+                all_text.append(get_full_calc_text(sec))
+
+                section_count += 1
+
+            if section_count == 0:
+                QMessageBox.warning(self, '경고', '출력할 단면 데이터가 없습니다.')
+                return
+
+            # 파일 저장
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(all_text))
+
+            QMessageBox.information(self, '저장 완료', f'텍스트 파일이 저장되었습니다:\n{filename}\n\n총 {section_count}개 단면')
+            self.statusBar().showMessage(f'텍스트 저장 완료: {filename}')
+
+        except Exception as e:
+            QMessageBox.critical(self, '오류', f'텍스트 저장 오류: {str(e)}')
             print(f'Error: {e}')
 
     def save_file(self):
