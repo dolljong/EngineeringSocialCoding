@@ -105,6 +105,98 @@ class AlignDelegate(QtWidgets.QStyledItemDelegate):
         super(AlignDelegate, self).initStyleOption(option, index)
         option.displayAlignment = QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight
 
+
+class CopyPasteTableWidget(QTableWidget):
+    """복사/붙여넣기 기능이 추가된 QTableWidget"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def keyPressEvent(self, event):
+        if event.matches(QtGui.QKeySequence.Copy):
+            self.copy_selection()
+        elif event.matches(QtGui.QKeySequence.Paste):
+            self.paste_clipboard()
+        elif event.matches(QtGui.QKeySequence.Cut):
+            self.cut_selection()
+        elif event.key() == Qt.Key_Delete:
+            self.delete_selection()
+        else:
+            super().keyPressEvent(event)
+
+    def copy_selection(self):
+        """선택된 셀들을 클립보드에 복사 (탭으로 구분, Excel 호환)"""
+        selection = self.selectedRanges()
+        if not selection:
+            return
+
+        # 선택 영역의 범위 계산
+        min_row = min(r.topRow() for r in selection)
+        max_row = max(r.bottomRow() for r in selection)
+        min_col = min(r.leftColumn() for r in selection)
+        max_col = max(r.rightColumn() for r in selection)
+
+        # 선택된 셀들의 텍스트를 수집
+        rows = []
+        for row in range(min_row, max_row + 1):
+            row_data = []
+            for col in range(min_col, max_col + 1):
+                item = self.item(row, col)
+                if item is not None:
+                    row_data.append(item.text())
+                else:
+                    row_data.append('')
+            rows.append('\t'.join(row_data))
+
+        # 클립보드에 복사
+        clipboard = QApplication.clipboard()
+        clipboard.setText('\n'.join(rows))
+
+    def cut_selection(self):
+        """선택된 셀들을 잘라내기 (복사 후 삭제)"""
+        self.copy_selection()
+        self.delete_selection()
+
+    def delete_selection(self):
+        """선택된 셀들의 내용 삭제"""
+        for item in self.selectedItems():
+            item.setText('')
+
+    def paste_clipboard(self):
+        """클립보드의 내용을 현재 셀부터 붙여넣기"""
+        clipboard = QApplication.clipboard()
+        text = clipboard.text()
+        if not text:
+            return
+
+        # 현재 선택된 셀 위치
+        selection = self.selectedRanges()
+        if not selection:
+            current_row = self.currentRow()
+            current_col = self.currentColumn()
+        else:
+            current_row = selection[0].topRow()
+            current_col = selection[0].leftColumn()
+
+        if current_row < 0 or current_col < 0:
+            return
+
+        # 클립보드 텍스트를 행/열로 분리
+        rows = text.split('\n')
+        for i, row_text in enumerate(rows):
+            if current_row + i >= self.rowCount():
+                break
+            cols = row_text.split('\t')
+            for j, cell_text in enumerate(cols):
+                if current_col + j >= self.columnCount():
+                    break
+                # 셀에 값 설정
+                item = self.item(current_row + i, current_col + j)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.setItem(current_row + i, current_col + j, item)
+                item.setText(cell_text.strip())
+
+
 class ComboBoxDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ComboBoxDelegate, self).__init__(parent)
@@ -286,8 +378,8 @@ class MyApp(QMainWindow):
         self.hbox.addWidget(self.cbshearrebar)
         self.hbox.addStretch()
 
-        self.tableWidget1 = QTableWidget()
-        self.tableWidget = QTableWidget()
+        self.tableWidget1 = CopyPasteTableWidget()
+        self.tableWidget = CopyPasteTableWidget()
         
         
         self.tableWidget1.setRowCount(1)
