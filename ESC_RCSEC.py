@@ -1067,6 +1067,8 @@ class AlignDelegate(QtWidgets.QStyledItemDelegate):
     def initStyleOption(self, option, index):
         super(AlignDelegate, self).initStyleOption(option, index)
         option.displayAlignment = QtCore.Qt.AlignVCenter | QtCore.Qt.AlignRight
+        
+        
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
