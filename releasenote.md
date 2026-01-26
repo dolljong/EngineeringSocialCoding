@@ -1,5 +1,12 @@
 # ESC_RCSEC Release Notes
 
+## v1.7 (2026-01-26)
+- phi_c, phi_s 기본값 0.85로 변경
+- 철근량 부족(ratio < 1.0) 시 셀 배경색 붉은색 표시
+- 철근량 부족 단면 경고 알림창 추가
+- 윈도우 제목 ESC_RCSEC으로 변경
+- Release Notes 메뉴 기능 추가
+
 ## v1.6 (2026-01-25)
 - WEB APP 추가
 
