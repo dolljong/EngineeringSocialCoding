@@ -124,11 +124,16 @@ function initEventListeners() {
 
     // File input
     document.getElementById('fileInput').addEventListener('change', handleFileOpen);
+
+    // Help menu
+    document.getElementById('releaseBtn').addEventListener('click', showReleaseNotes);
+    document.getElementById('closeReleaseModal').addEventListener('click', closeReleaseModal);
+    document.getElementById('closeReleaseBtn').addEventListener('click', closeReleaseModal);
 }
 
 // Load sample data
 function loadSampleData() {
-    const sampleData = ['Center', '100', '50', '5', '80', '800', '1000', '80', '25', '8', '1', '16', '2', '400'];
+    const sampleData = ['Center', '1000', '50', '5', '80', '800', '1000', '80', '25', '8', '1', '16', '2', '400'];
     const row = document.querySelector('#tableBody tr[data-row="0"]');
 
     row.querySelector('[data-col="0"]').value = sampleData[0];
@@ -192,8 +197,8 @@ function getMaterialData() {
     return {
         fck: parseFloat(document.getElementById('fck').value) || 35,
         fy: parseFloat(document.getElementById('fy').value) || 400,
-        Oc: parseFloat(document.getElementById('Oc').value) || 0.65,
-        Os: parseFloat(document.getElementById('Os').value) || 0.7
+        Oc: parseFloat(document.getElementById('Oc').value) || 0.85,
+        Os: parseFloat(document.getElementById('Os').value) || 0.85
     };
 }
 
@@ -260,6 +265,7 @@ function calculate() {
     try {
         const mat = getMaterialData();
         let calcCount = 0;
+        let insufficientSections = [];
 
         for (let i = 0; i < ROW_COUNT; i++) {
             const rowData = getRowData(i);
@@ -290,9 +296,30 @@ function calculate() {
             const ratio = sec.Asreq > 0 ? sec.Asuse / sec.Asreq : 0;
             setResultCells(i, sec.Asreq, sec.Asuse, ratio);
             calcCount++;
+
+            // 철근량 부족 단면 수집
+            if (ratio > 0 && ratio < 1.0) {
+                insufficientSections.push({
+                    name: rowData.name,
+                    As_req: sec.Asreq,
+                    As_used: sec.Asuse,
+                    ratio: ratio
+                });
+            }
         }
 
         updateStatus(`계산 완료 (${calcCount}개 단면)`);
+
+        // 철근량 부족 단면 경고
+        if (insufficientSections.length > 0) {
+            let msg = '철근량이 부족한 단면이 있습니다.\n\n';
+            msg += '단면명\t\t필요철근량\t사용철근량\t비율\n';
+            msg += '─'.repeat(25) + '\n';
+            for (const sec of insufficientSections) {
+                msg += `${sec.name}\t\t${sec.As_req.toFixed(1)}\t\t${sec.As_used.toFixed(1)}\t\t${sec.ratio.toFixed(2)}\n`;
+            }
+            alert(msg);
+        }
     } catch (e) {
         console.error('Calculation error:', e);
         updateStatus('계산 오류: ' + e.message);
@@ -448,8 +475,8 @@ function newFile() {
         // Reset material
         document.getElementById('fck').value = '35';
         document.getElementById('fy').value = '400';
-        document.getElementById('Oc').value = '0.65';
-        document.getElementById('Os').value = '0.7';
+        document.getElementById('Oc').value = '0.85';
+        document.getElementById('Os').value = '0.85';
 
         // Reset table
         for (let i = 0; i < ROW_COUNT; i++) {
@@ -557,8 +584,8 @@ function loadData(data) {
     const mat = data.material || {};
     document.getElementById('fck').value = mat.fck || 35;
     document.getElementById('fy').value = mat.fy || 400;
-    document.getElementById('Oc').value = mat.Oc || 0.65;
-    document.getElementById('Os').value = mat.Os || 0.7;
+    document.getElementById('Oc').value = mat.Oc || 0.85;
+    document.getElementById('Os').value = mat.Os || 0.85;
 
     // Clear table first
     for (let i = 0; i < ROW_COUNT; i++) {
@@ -618,4 +645,31 @@ function downloadFile(content, filename, mimeType) {
 // Update status bar
 function updateStatus(message) {
     document.getElementById('statusText').textContent = message;
+}
+
+// Show release notes
+function showReleaseNotes() {
+    const releaseContent = `# ESC_RCSEC WEB Release Notes
+
+## v1.1 (2026-01-26)
+- phi_c, phi_s 기본값 0.85로 변경
+- 예제 데이터 Mu 값 1000으로 변경
+- 철근량 부족(As_used/As_req < 1.0) 시 경고 알림창 추가
+- Release Notes 보기 기능 추가
+
+## v1.0 (2026-01-25)
+- 초기 WEB APP 버전
+- Python ESC_RCSEC.py를 JavaScript로 변환
+- 휨모멘트, 전단력, 사용성 검토 기능
+- 계산과정 뷰어 (전체/휨모멘트/전단력/사용성 탭)
+- 텍스트 내보내기 기능
+- 데이터 저장/불러오기 기능 (.rcsec)`;
+
+    document.getElementById('releaseContent').textContent = releaseContent;
+    document.getElementById('releaseModal').classList.add('show');
+}
+
+// Close release notes modal
+function closeReleaseModal() {
+    document.getElementById('releaseModal').classList.remove('show');
 }

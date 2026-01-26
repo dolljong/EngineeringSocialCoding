@@ -471,7 +471,7 @@ class MyApp(QMainWindow):
         self.tableWidget1.horizontalHeaderItem(0).setToolTip("콘크리트설계강도")
         self.tableWidget1.horizontalHeaderItem(1).setToolTip("철근항복강도")
             
-        sampledata=['Center','100','50','5','80','800','1000','80','25','8','1','16','2','400']
+        sampledata=['Center','1000','50','5','80','800','1000','80','25','8','1','16','2','400']
         for j in range(14):
             self.tableWidget.setItem(0, j, QTableWidgetItem(sampledata[j]))
 

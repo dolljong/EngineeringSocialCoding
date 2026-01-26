@@ -82,8 +82,8 @@
                             <tr>
                                 <td><input type="number" id="fck" value="35" step="1"></td>
                                 <td><input type="number" id="fy" value="400" step="1"></td>
-                                <td><input type="number" id="Oc" value="0.65" step="0.01"></td>
-                                <td><input type="number" id="Os" value="0.7" step="0.01"></td>
+                                <td><input type="number" id="Oc" value="0.85" step="0.01"></td>
+                                <td><input type="number" id="Os" value="0.85" step="0.01"></td>
                             </tr>
                         </tbody>
                     </table>
@@ -166,6 +166,22 @@
                 <button id="copyCalcBtn">복사</button>
                 <button id="saveCalcBtn">텍스트 저장</button>
                 <button id="closeCalcBtn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Release Notes Modal -->
+    <div class="modal" id="releaseModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Release Notes</h2>
+                <button class="close-btn" id="closeReleaseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="releaseContent" class="calc-text"></pre>
+            </div>
+            <div class="modal-footer">
+                <button id="closeReleaseBtn">닫기</button>
             </div>
         </div>
     </div>

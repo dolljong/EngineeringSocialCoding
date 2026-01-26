@@ -1,5 +1,11 @@
 # ESC_RCSEC Release Notes
 
+## v1.8 (2026-01-26)
+- [WEB] phi_c, phi_s 기본값 0.85로 변경
+- [WEB] 예제 데이터 Mu 값 1000으로 변경
+- [WEB] 철근량 부족(As_used/As_req < 1.0) 시 경고 알림창 추가
+- [Desktop] 예제 데이터 Mu 값 1000으로 변경
+
 ## v1.7 (2026-01-26)
 - phi_c, phi_s 기본값 0.85로 변경
 - 철근량 부족(ratio < 1.0) 시 셀 배경색 붉은색 표시
