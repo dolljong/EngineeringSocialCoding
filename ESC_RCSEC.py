@@ -274,6 +274,7 @@ class MyApp(QMainWindow):
         # help menu action
         self.doc_action = QAction("Documentation")
         self.release_action = QAction("Release Notes")
+        self.release_action.triggered.connect(self.show_release_notes)
         self.license_action = QAction("View License")
 
         # file menu
@@ -331,7 +332,7 @@ class MyApp(QMainWindow):
          
         self.statusBar().showMessage('Ready')
         
-        self.setWindowTitle('Statusbar')
+        self.setWindowTitle('ESC_RCSEC')
         
         #self.setGeometry(300, 300, 300, 200)
         
@@ -464,7 +465,7 @@ class MyApp(QMainWindow):
         for row in range(self.tableWidget.rowCount()):
             self.tableWidget.openPersistentEditor(self.tableWidget.item(row, 8))                
 
-        samplematdata=['35','400','0.65','0.7']
+        samplematdata=['35','400','0.85','0.85']
         for j in range(4):
             self.tableWidget1.setItem(0, j, QTableWidgetItem(samplematdata[j]))
         self.tableWidget1.horizontalHeaderItem(0).setToolTip("콘크리트설계강도")
@@ -490,7 +491,7 @@ class MyApp(QMainWindow):
 
         self.setCentralWidget(widget)
 
-        self.setWindowTitle('QTableWidget')
+        self.setWindowTitle('ESC_RCSEC')
         self.setGeometry(300, 100, 1024, 400)
         self.show()
 
@@ -542,6 +543,9 @@ class MyApp(QMainWindow):
 
             datalist = [fck, fy]
             datalist1 = [Oc, Os]
+
+            # 철근량 부족 단면 리스트
+            insufficient_sections = []
 
             # 각 행에 대해 계산 수행
             for row in range(self.tableWidget.rowCount()):
@@ -612,9 +616,30 @@ class MyApp(QMainWindow):
 
                 self.tableWidget.setItem(row, 14, QTableWidgetItem(f'{As_req:.1f}'))
                 self.tableWidget.setItem(row, 15, QTableWidgetItem(f'{As_used:.1f}'))
-                self.tableWidget.setItem(row, 16, QTableWidgetItem(f'{ratio:.2f}'))
+
+                ratio_item = QTableWidgetItem(f'{ratio:.2f}')
+                if ratio < 1.0:
+                    ratio_item.setBackground(QtGui.QColor(255, 150, 150))  # 붉은색 배경
+                    # 철근량 부족 단면 정보 저장
+                    insufficient_sections.append({
+                        'name': name_item.text(),
+                        'As_req': As_req,
+                        'As_used': As_used,
+                        'ratio': ratio
+                    })
+                self.tableWidget.setItem(row, 16, ratio_item)
 
             self.statusBar().showMessage('계산 완료')
+
+            # 철근량 부족 단면이 있으면 알림창 표시
+            if insufficient_sections:
+                msg = "철근량이 부족한 단면이 있습니다.\n\n"
+                msg += f"{'단면명':<15} {'필요철근량':>12} {'사용철근량':>12} {'비율':>8}\n"
+                msg += "-" * 50 + "\n"
+                for sec_info in insufficient_sections:
+                    msg += f"{sec_info['name']:<15} {sec_info['As_req']:>12.1f} {sec_info['As_used']:>12.1f} {sec_info['ratio']:>8.2f}\n"
+
+                QMessageBox.warning(self, '철근량 부족 경고', msg)
 
         except Exception as e:
             self.statusBar().showMessage(f'계산 오류: {str(e)}')
@@ -933,8 +958,8 @@ class MyApp(QMainWindow):
             material = {
                 "fck": float(self.tableWidget1.item(0, 0).text()) if self.tableWidget1.item(0, 0) else 35,
                 "fy": float(self.tableWidget1.item(0, 1).text()) if self.tableWidget1.item(0, 1) else 400,
-                "Oc": float(self.tableWidget1.item(0, 2).text()) if self.tableWidget1.item(0, 2) else 0.65,
-                "Os": float(self.tableWidget1.item(0, 3).text()) if self.tableWidget1.item(0, 3) else 0.7
+                "Oc": float(self.tableWidget1.item(0, 2).text()) if self.tableWidget1.item(0, 2) else 0.85,
+                "Os": float(self.tableWidget1.item(0, 3).text()) if self.tableWidget1.item(0, 3) else 0.85
             }
 
             # 부재 데이터 수집
@@ -1016,8 +1041,8 @@ class MyApp(QMainWindow):
             material = data.get("material", {})
             self.tableWidget1.setItem(0, 0, QTableWidgetItem(str(material.get("fck", 35))))
             self.tableWidget1.setItem(0, 1, QTableWidgetItem(str(material.get("fy", 400))))
-            self.tableWidget1.setItem(0, 2, QTableWidgetItem(str(material.get("Oc", 0.65))))
-            self.tableWidget1.setItem(0, 3, QTableWidgetItem(str(material.get("Os", 0.7))))
+            self.tableWidget1.setItem(0, 2, QTableWidgetItem(str(material.get("Oc", 0.85))))
+            self.tableWidget1.setItem(0, 3, QTableWidgetItem(str(material.get("Os", 0.85))))
 
             # 기존 테이블 데이터 클리어
             for row in range(self.tableWidget.rowCount()):
@@ -1062,6 +1087,41 @@ class MyApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, '오류', f'파일 불러오기 오류: {str(e)}')
             print(f'Error: {e}')
+
+    def show_release_notes(self):
+        """Release Notes 표시"""
+        try:
+            import os
+            # 현재 스크립트 위치 기준으로 releasenote.md 경로 설정
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            release_file = os.path.join(script_dir, 'releasenote.md')
+
+            if os.path.exists(release_file):
+                with open(release_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                # 다이얼로그로 표시
+                dialog = QDialog(self)
+                dialog.setWindowTitle('Release Notes')
+                dialog.setGeometry(200, 200, 500, 400)
+
+                layout = QVBoxLayout(dialog)
+
+                text_edit = QTextEdit()
+                text_edit.setReadOnly(True)
+                text_edit.setFont(QFont('Consolas', 10))
+                text_edit.setText(content)
+                layout.addWidget(text_edit)
+
+                close_btn = QPushButton('닫기')
+                close_btn.clicked.connect(dialog.close)
+                layout.addWidget(close_btn)
+
+                dialog.exec_()
+            else:
+                QMessageBox.warning(self, '경고', 'releasenote.md 파일을 찾을 수 없습니다.')
+        except Exception as e:
+            QMessageBox.critical(self, '오류', f'Release Notes 표시 오류: {str(e)}')
 
 class AlignDelegate(QtWidgets.QStyledItemDelegate):
     def initStyleOption(self, option, index):
