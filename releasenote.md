@@ -1,5 +1,9 @@
 # ESC_RCSEC Release Notes
 
+## v1.9 (2026-01-26)
+- [WEB] Excel 스타일 스프레드시트 UI 적용 (jspreadsheet)
+- [WEB] 셀 복사/붙여넣기, 드래그 선택 등 Excel 기능 지원
+
 ## v1.8 (2026-01-26)
 - [WEB] phi_c, phi_s 기본값 0.85로 변경
 - [WEB] 예제 데이터 Mu 값 1000으로 변경

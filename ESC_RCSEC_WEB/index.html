@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RC Section Calculator</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- jspreadsheet CE -->
+    <link rel="stylesheet" href="https://bossanova.uk/jspreadsheet/v4/jexcel.css" type="text/css" />
+    <link rel="stylesheet" href="https://jsuites.net/v4/jsuites.css" type="text/css" />
+    <script src="https://bossanova.uk/jspreadsheet/v4/jexcel.js"></script>
+    <script src="https://jsuites.net/v4/jsuites.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -92,41 +97,7 @@
                 <!-- Force & Rebar Section -->
                 <div class="section">
                     <h3>Force & Rebar Area</h3>
-                    <div class="checkbox-group">
-                        <label><input type="checkbox" id="showForces" checked> Show forces</label>
-                        <label><input type="checkbox" id="showSecInfo" checked> Show sec info</label>
-                        <label><input type="checkbox" id="showBandRebar" checked> Show band rebar</label>
-                        <label><input type="checkbox" id="showShearRebar" checked> Show shear rebar</label>
-                    </div>
-
-                    <div class="table-container">
-                        <table class="data-table" id="dataTable">
-                            <thead>
-                                <tr>
-                                    <th class="col-name">Name</th>
-                                    <th class="col-force">Mu<br>(kN.m)</th>
-                                    <th class="col-force">Vu<br>(kN)</th>
-                                    <th class="col-force">Nu<br>(kN)</th>
-                                    <th class="col-force">Ms<br>(kN.m)</th>
-                                    <th class="col-sec">H<br>(mm)</th>
-                                    <th class="col-sec">B<br>(mm)</th>
-                                    <th class="col-sec">Dc<br>(mm)</th>
-                                    <th class="col-band">As_Dia<br>(mm)</th>
-                                    <th class="col-band">As_Num<br>(EA)</th>
-                                    <th class="col-shear">δ</th>
-                                    <th class="col-shear">Av_Dia<br>(mm)</th>
-                                    <th class="col-shear">Av_Leg<br>(EA)</th>
-                                    <th class="col-shear">Av_Space<br>(mm)</th>
-                                    <th class="col-result">As_req<br>(mm²)</th>
-                                    <th class="col-result">As_used<br>(mm²)</th>
-                                    <th class="col-result">As_used<br>/As_req</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                <!-- Rows will be added by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <div id="spreadsheet"></div>
                 </div>
             </div>
 

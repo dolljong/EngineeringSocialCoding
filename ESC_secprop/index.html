@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단면 특성 계산기 (2D Canvas)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; height: 100vh; display: flex; }
+        #left-panel {
+            width: 300px;
+            min-width: 300px;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #ccc;
+        }
+        #right-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #canvas-container {
+            flex: 1 1 0;
+            min-height: 0;
+            border-bottom: 2px solid #ccc;
+            overflow: hidden;
+            position: relative;
+        }
+        #sectionCanvas {
+            display: block;
+        }
+        #results-container {
+            flex: 0 0 auto;
+            min-height: 200px;
+            padding: 15px 20px;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+        }
+        .result-table { border-collapse: collapse; font-size: 13px; margin: 0 auto; }
+        .result-table th, .result-table td { border: 1px solid #aaa; padding: 5px 12px; }
+        .result-table th { background-color: #e8e8e8; text-align: center; }
+        .result-table td:first-child, .result-table td:nth-child(3) { text-align: left; }
+        .result-table td:nth-child(2), .result-table td:nth-child(4),
+        .result-table td:nth-child(5), .result-table td:nth-child(6) { text-align: right; }
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
+        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        #error { color: red; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="left-panel">
+        <h1 style="font-size:1.3em; margin-bottom:10px;">단면 특성 계산기</h1>
+        <p style="font-size:13px; margin-bottom:10px;">주의: 절점을 시계 방향 또는 반시계 방향으로 일관되게 입력하세요. 방향은 상관없지만 순서는 연속적이어야 합니다.</p>
+        <button onclick="loadHollowExample()" style="margin-bottom:10px; background-color:#2196F3;">예제 데이터 불러오기 (중공 단면)</button>
+        <textarea id="coordinates" placeholder="점번호,x,y 좌표를 입력하세요 (예:&#10;1,0,0&#10;2,1,0&#10;3,1,1&#10;4,0,1)"></textarea>
+        <button onclick="calculateProperties()">계산</button>
+        <div id="error"></div>
+    </div>
+    <div id="right-panel">
+        <div id="canvas-container">
+            <canvas id="sectionCanvas"></canvas>
+        </div>
+        <div id="results-container">
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('sectionCanvas');
+        const ctx = canvas.getContext('2d');
+        let points = [];
+        let centroid = null;
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            drawSection();
+        }
+
+        function drawSection() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (points.length < 3) return;
+
+            const marginLeft = 40;
+            const marginRight = 160;  // 중립축 라벨 공간
+            const marginTop = 30;
+            const marginBottom = 30;
+            const minX = Math.min(...points.map(p => p.x));
+            const maxX = Math.max(...points.map(p => p.x));
+            const minY = Math.min(...points.map(p => p.y));
+            const maxY = Math.max(...points.map(p => p.y));
+            const drawW = canvas.width - marginLeft - marginRight;
+            const drawH = canvas.height - marginTop - marginBottom;
+            if (drawW <= 0 || drawH <= 0) return;
+            const scale = Math.min(drawW / (maxX - minX), drawH / (maxY - minY)) * 0.85;
+
+            // 도형을 그리기 영역 중앙에 배치
+            const shapeW = (maxX - minX) * scale;
+            const shapeH = (maxY - minY) * scale;
+            const offsetX = marginLeft + (drawW - shapeW) / 2;
+            const offsetY = marginBottom + (drawH - shapeH) / 2;
+
+            function transformX(x) { return (x - minX) * scale + offsetX; }
+            function transformY(y) { return canvas.height - ((y - minY) * scale + offsetY); }
+
+            // Draw shape
+            ctx.beginPath();
+            ctx.moveTo(transformX(points[0].x), transformY(points[0].y));
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(transformX(points[i].x), transformY(points[i].y));
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.fill();
+            ctx.strokeStyle = 'green';
+            ctx.stroke();
+
+            // Draw points and labels
+            ctx.font = '14px Arial';
+            points.forEach((point, index) => {
+                const x = transformX(point.x);
+                const y = transformY(point.y);
+
+                ctx.beginPath();
+                ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = 'red';
+                ctx.fill();
+
+                ctx.fillStyle = 'black';
+                ctx.fillText(point.id, x + 10, y - 10);
+            });
+
+            // Draw neutral axis (중립축) - dashed line through centroid
+            if (centroid) {
+                const naY = transformY(centroid.cy);
+                ctx.beginPath();
+                ctx.setLineDash([8, 4]);
+                ctx.strokeStyle = 'blue';
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(transformX(minX) - 20, naY);
+                ctx.lineTo(transformX(maxX) + 20, naY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.lineWidth = 1;
+
+                // X-axis label
+                ctx.fillStyle = 'blue';
+                ctx.font = '12px Arial';
+                ctx.fillText('x축 중립축 (N.A.x)', transformX(maxX) + 25, naY + 4);
+
+                // Y neutral axis (y축 중립축) - vertical dashed line through centroid
+                const naX = transformX(centroid.cx);
+                ctx.beginPath();
+                ctx.setLineDash([8, 4]);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(naX, transformY(minY) + 20);
+                ctx.lineTo(naX, transformY(maxY) - 20);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.lineWidth = 1;
+
+                // Y-axis label
+                ctx.fillStyle = 'red';
+                ctx.font = '12px Arial';
+                ctx.fillText('y축 중립축 (N.A.y)', naX + 8, transformY(maxY) - 25);
+            }
+        }
+
+        function updateShape() {
+            const coordinates = document.getElementById('coordinates').value;
+            points = coordinates.split('\n').map(line => {
+                const parts = line.split(',').map(s => s.trim());
+                if (parts.length < 3) return null;
+                const id = parts[0];
+                const x = Number(parts[1]);
+                const y = Number(parts[2]);
+                return isNaN(x) || isNaN(y) ? null : { id, x, y };
+            }).filter(point => point !== null);
+
+            if (points.length < 3) {
+                document.getElementById('error').textContent = '최소 3개의 점이 필요합니다';
+                return;
+            }
+
+            document.getElementById('error').textContent = '';
+            drawSection();
+        }
+
+        function calculateProperties() {
+            if (points.length < 3) {
+                document.getElementById('error').textContent = '최소 3개의 점이 필요합니다';
+                document.getElementById('results').textContent = '';
+                return;
+            }
+
+            let area = 0;
+            let cx = 0;
+            let cy = 0;
+
+            for (let i = 0; i < points.length; i++) {
+                const j = (i + 1) % points.length;
+                const xi = points[i].x, yi = points[i].y;
+                const xj = points[j].x, yj = points[j].y;
+
+                const dArea = (xi * yj - xj * yi) / 2;
+                area += dArea;
+
+                cx += (xi + xj) * dArea;
+                cy += (yi + yj) * dArea;
+            }
+
+            cx /= (3 * area);
+            cy /= (3 * area);
+
+            centroid = { cx, cy };
+
+            let Ixx = 0, Iyy = 0, Ixy = 0;
+
+            for (let i = 0; i < points.length; i++) {
+                const j = (i + 1) % points.length;
+                const xi = points[i].x, yi = points[i].y;
+                const xj = points[j].x, yj = points[j].y;
+
+                Ixx += ((yi*yi + yi*yj + yj*yj) * (xi*yj - xj*yi)) / 12;
+                Iyy += ((xi*xi + xi*xj + xj*xj) * (xi*yj - xj*yi)) / 12;
+                Ixy += ((xi*yj + 2*xi*yi + 2*xj*yj + xj*yi) * (xi*yj - xj*yi)) / 24;
+            }
+
+            Ixx = Math.abs(Ixx - area * cy * cy);
+            Iyy = Math.abs(Iyy - area * cx * cx);
+            Ixy = Ixy - area * cx * cy;
+
+            area = Math.abs(area);
+
+            // 연단거리 계산 (도심에서 각 방향 최대 거리) + 해당 점번호
+            const ptMaxY = points.reduce((a, b) => b.y > a.y ? b : a);
+            const ptMinY = points.reduce((a, b) => b.y < a.y ? b : a);
+            const ptMaxX = points.reduce((a, b) => b.x > a.x ? b : a);
+            const ptMinX = points.reduce((a, b) => b.x < a.x ? b : a);
+
+            const yt = ptMaxY.y - cy;  // y축 + 방향 연단거리 (상단)
+            const yb = cy - ptMinY.y;  // y축 - 방향 연단거리 (하단)
+            const xr = ptMaxX.x - cx;  // x축 + 방향 연단거리 (우측)
+            const xl = cx - ptMinX.x;  // x축 - 방향 연단거리 (좌측)
+
+            // 단면계수 계산 (S = I / y)
+            const Sxt = yt !== 0 ? Ixx / yt : 0;  // x축 상단 단면계수
+            const Sxb = yb !== 0 ? Ixx / yb : 0;  // x축 하단 단면계수
+            const Syr = xr !== 0 ? Iyy / xr : 0;  // y축 우측 단면계수
+            const Syl = xl !== 0 ? Iyy / xl : 0;  // y축 좌측 단면계수
+
+            document.getElementById('results').innerHTML = `
+                <table class="result-table">
+                    <tr>
+                        <th colspan="2">단면 특성</th>
+                        <th colspan="4">연단거리 / 단면계수</th>
+                    </tr>
+                    <tr>
+                        <th>항목</th>
+                        <th>값</th>
+                        <th>위치</th>
+                        <th>점</th>
+                        <th>연단거리</th>
+                        <th>단면계수 (S)</th>
+                    </tr>
+                    <tr>
+                        <td>A (단면적)</td>
+                        <td>${area.toFixed(4)}</td>
+                        <td>y (+) 상단</td>
+                        <td>${ptMaxY.id}</td>
+                        <td>${yt.toFixed(4)}</td>
+                        <td>${Sxt.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                        <td>Cx (도심 x)</td>
+                        <td>${cx.toFixed(4)}</td>
+                        <td>y (-) 하단</td>
+                        <td>${ptMinY.id}</td>
+                        <td>${yb.toFixed(4)}</td>
+                        <td>${Sxb.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                        <td>Cy (도심 y)</td>
+                        <td>${cy.toFixed(4)}</td>
+                        <td>x (+) 우측</td>
+                        <td>${ptMaxX.id}</td>
+                        <td>${xr.toFixed(4)}</td>
+                        <td>${Syr.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                        <td>Ixx (x축)</td>
+                        <td>${Ixx.toFixed(4)}</td>
+                        <td>x (-) 좌측</td>
+                        <td>${ptMinX.id}</td>
+                        <td>${xl.toFixed(4)}</td>
+                        <td>${Syl.toFixed(4)}</td>
+                    </tr>
+                    <tr>
+                        <td>Iyy (y축)</td>
+                        <td>${Iyy.toFixed(4)}</td>
+                        <td colspan="4" rowspan="2"></td>
+                    </tr>
+                    <tr>
+                        <td>Ixy (극)</td>
+                        <td>${Ixy.toFixed(4)}</td>
+                    </tr>
+                </table>
+            `;
+
+            resizeCanvas();
+        }
+
+        function loadHollowExample() {
+            // 중공 직사각형: 폭=1, 높이=2, 두께=0.2
+            // 외곽 반시계방향 → 브릿지 → 내곽 시계방향 → 브릿지
+            const data = [
+                '1,0,0', '2,1,0', '3,1,2', '4,0,2',           // 외곽 (반시계)
+                '5,0,0', '6,0.2,0.2',                           // 브릿지
+                '7,0.2,1.8', '8,0.8,1.8', '9,0.8,0.2',        // 내곽 (시계)
+                '10,0.2,0.2', '11,0,0'                          // 브릿지 복귀
+            ].join('\n');
+
+            document.getElementById('coordinates').value = data;
+            updateShape();
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+            resizeCanvas();
+            document.getElementById('coordinates').addEventListener('input', updateShape);
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>

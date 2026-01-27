@@ -1,6 +1,7 @@
 /**
  * RC Section Calculator - Main Application
  * Converted from Python (ESC_RCSEC.py)
+ * Using jspreadsheet for Excel-like interface
  */
 
 const ROW_COUNT = 20;
@@ -9,73 +10,102 @@ const REBAR_DIAS = ['10', '13', '16', '19', '22', '25', '29', '32', '35'];
 // Current calculation data
 let currentCalcData = null;
 let selectedRow = 0;
+let spreadsheet = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
-    initTable();
+    initSpreadsheet();
     initEventListeners();
-    loadSampleData();
     updateStatus('Ready');
 });
 
-// Initialize the data table
-function initTable() {
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '';
+// Initialize jspreadsheet
+function initSpreadsheet() {
+    const container = document.getElementById('spreadsheet');
 
-    for (let i = 0; i < ROW_COUNT; i++) {
-        const row = document.createElement('tr');
-        row.dataset.row = i;
+    // Sample data
+    const data = [
+        ['Center', 1000, 50, 5, 80, 800, 1000, 80, '25', 8, 1, '16', 2, 400, '', '', '']
+    ];
 
-        // Name
-        row.innerHTML += `<td class="col-name"><input type="text" data-col="0"></td>`;
-
-        // Forces: Mu, Vu, Nu, Ms
-        for (let j = 1; j <= 4; j++) {
-            row.innerHTML += `<td class="col-force"><input type="number" data-col="${j}" step="0.1"></td>`;
-        }
-
-        // Section: H, B, Dc
-        for (let j = 5; j <= 7; j++) {
-            row.innerHTML += `<td class="col-sec"><input type="number" data-col="${j}" step="1"></td>`;
-        }
-
-        // Band rebar: As_Dia (dropdown), As_Num
-        row.innerHTML += `<td class="col-band"><select data-col="8">${REBAR_DIAS.map(d => `<option value="${d}">${d}</option>`).join('')}</select></td>`;
-        row.innerHTML += `<td class="col-band"><input type="number" data-col="9" step="1"></td>`;
-
-        // Shear rebar: δ, Av_Dia (dropdown), Av_Leg, Av_Space
-        row.innerHTML += `<td class="col-shear"><input type="number" data-col="10" step="0.01" value="1"></td>`;
-        row.innerHTML += `<td class="col-shear"><select data-col="11">${REBAR_DIAS.map(d => `<option value="${d}">${d}</option>`).join('')}</select></td>`;
-        row.innerHTML += `<td class="col-shear"><input type="number" data-col="12" step="1"></td>`;
-        row.innerHTML += `<td class="col-shear"><input type="number" data-col="13" step="1"></td>`;
-
-        // Results: As_req, As_used, ratio
-        row.innerHTML += `<td class="col-result result-cell" data-col="14"></td>`;
-        row.innerHTML += `<td class="col-result result-cell" data-col="15"></td>`;
-        row.innerHTML += `<td class="col-result result-cell" data-col="16"></td>`;
-
-        tbody.appendChild(row);
-
-        // Set default values
-        row.querySelector('[data-col="8"]').value = '13';
-        row.querySelector('[data-col="11"]').value = '16';
+    // Fill remaining rows with empty data
+    for (let i = 1; i < ROW_COUNT; i++) {
+        data.push(['', '', '', '', '', '', '', '', '13', '', 1, '16', '', '', '', '', '']);
     }
 
-    // Add row click handler
-    tbody.addEventListener('click', function(e) {
-        const row = e.target.closest('tr');
-        if (row) {
-            selectedRow = parseInt(row.dataset.row);
-            highlightRow(selectedRow);
+    spreadsheet = jspreadsheet(container, {
+        data: data,
+        columns: [
+            { title: 'Name', type: 'text', width: 120 },
+            { title: 'Mu\n(kN.m)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'Vu\n(kN)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'Nu\n(kN)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'Ms\n(kN.m)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'H\n(mm)', type: 'numeric', width: 60, decimal: '.' },
+            { title: 'B\n(mm)', type: 'numeric', width: 60, decimal: '.' },
+            { title: 'Dc\n(mm)', type: 'numeric', width: 60, decimal: '.' },
+            { title: 'As_Dia\n(mm)', type: 'dropdown', width: 70, source: REBAR_DIAS },
+            { title: 'As_Num\n(EA)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'δ', type: 'numeric', width: 50, decimal: '.' },
+            { title: 'Av_Dia\n(mm)', type: 'dropdown', width: 70, source: REBAR_DIAS },
+            { title: 'Av_Leg\n(EA)', type: 'numeric', width: 70, decimal: '.' },
+            { title: 'Av_Space\n(mm)', type: 'numeric', width: 80, decimal: '.' },
+            { title: 'As_req\n(mm²)', type: 'text', width: 80, readOnly: true },
+            { title: 'As_used\n(mm²)', type: 'text', width: 80, readOnly: true },
+            { title: 'As_used\n/As_req', type: 'text', width: 80, readOnly: true }
+        ],
+        defaultColWidth: 70,
+        tableOverflow: true,
+        tableWidth: '100%',
+        tableHeight: '400px',
+        rowResize: true,
+        columnDrag: false,
+        allowInsertRow: false,
+        allowDeleteRow: false,
+        allowInsertColumn: false,
+        allowDeleteColumn: false,
+        selectionCopy: true,
+        onselection: function(instance, x1, y1, x2, y2, origin) {
+            selectedRow = y1;
+        },
+        updateTable: function(instance, cell, col, row, val, label, cellName) {
+            // Style result columns
+            if (col >= 14) {
+                cell.style.backgroundColor = '#f0f8ff';
+                cell.style.fontWeight = 'bold';
+
+                // Color coding for ratio column
+                if (col === 16 && val !== '' && val !== null) {
+                    const ratio = parseFloat(val);
+                    if (!isNaN(ratio)) {
+                        if (ratio >= 1) {
+                            cell.style.backgroundColor = '#e6ffe6';
+                            cell.style.color = '#006600';
+                        } else if (ratio > 0) {
+                            cell.style.backgroundColor = '#ffe6e6';
+                            cell.style.color = '#cc0000';
+                        }
+                    }
+                }
+            }
         }
     });
-}
 
-function highlightRow(rowIndex) {
-    const rows = document.querySelectorAll('#tableBody tr');
-    rows.forEach((row, i) => {
-        row.classList.toggle('selected', i === rowIndex);
+    // 드롭다운 셀 싱글 클릭으로 열기 (mouseup 이벤트 사용)
+    container.addEventListener('mouseup', function(e) {
+        const td = e.target.closest('td');
+        if (td && td.dataset && td.dataset.x !== undefined) {
+            const x = parseInt(td.dataset.x);
+            const y = parseInt(td.dataset.y);
+            // 드롭다운 컬럼(As_Dia:8, Av_Dia:11)인 경우
+            if ((x === 8 || x === 11) && !isNaN(y)) {
+                setTimeout(function() {
+                    if (spreadsheet.records[y] && spreadsheet.records[y][x]) {
+                        spreadsheet.openEditor(spreadsheet.records[y][x], true);
+                    }
+                }, 50);
+            }
+        }
     });
 }
 
@@ -93,12 +123,6 @@ function initEventListeners() {
     document.getElementById('openBtn').addEventListener('click', openFile);
     document.getElementById('saveBtn').addEventListener('click', saveFile);
     document.getElementById('exportTextBtn').addEventListener('click', exportToText);
-
-    // Checkbox toggles
-    document.getElementById('showForces').addEventListener('change', toggleColumns);
-    document.getElementById('showSecInfo').addEventListener('change', toggleColumns);
-    document.getElementById('showBandRebar').addEventListener('change', toggleColumns);
-    document.getElementById('showShearRebar').addEventListener('change', toggleColumns);
 
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -129,44 +153,6 @@ function initEventListeners() {
     document.getElementById('releaseBtn').addEventListener('click', showReleaseNotes);
     document.getElementById('closeReleaseModal').addEventListener('click', closeReleaseModal);
     document.getElementById('closeReleaseBtn').addEventListener('click', closeReleaseModal);
-}
-
-// Load sample data
-function loadSampleData() {
-    const sampleData = ['Center', '1000', '50', '5', '80', '800', '1000', '80', '25', '8', '1', '16', '2', '400'];
-    const row = document.querySelector('#tableBody tr[data-row="0"]');
-
-    row.querySelector('[data-col="0"]').value = sampleData[0];
-    for (let i = 1; i <= 7; i++) {
-        row.querySelector(`[data-col="${i}"]`).value = sampleData[i];
-    }
-    row.querySelector('[data-col="8"]').value = sampleData[8];
-    row.querySelector('[data-col="9"]').value = sampleData[9];
-    row.querySelector('[data-col="10"]').value = sampleData[10];
-    row.querySelector('[data-col="11"]').value = sampleData[11];
-    row.querySelector('[data-col="12"]').value = sampleData[12];
-    row.querySelector('[data-col="13"]').value = sampleData[13];
-}
-
-// Toggle column visibility
-function toggleColumns() {
-    const showForces = document.getElementById('showForces').checked;
-    const showSecInfo = document.getElementById('showSecInfo').checked;
-    const showBandRebar = document.getElementById('showBandRebar').checked;
-    const showShearRebar = document.getElementById('showShearRebar').checked;
-
-    document.querySelectorAll('.col-force').forEach(el => {
-        el.classList.toggle('hidden', !showForces);
-    });
-    document.querySelectorAll('.col-sec').forEach(el => {
-        el.classList.toggle('hidden', !showSecInfo);
-    });
-    document.querySelectorAll('.col-band').forEach(el => {
-        el.classList.toggle('hidden', !showBandRebar);
-    });
-    document.querySelectorAll('.col-shear').forEach(el => {
-        el.classList.toggle('hidden', !showShearRebar);
-    });
 }
 
 // Switch main tabs
@@ -202,62 +188,40 @@ function getMaterialData() {
     };
 }
 
-// Get row data
+// Get row data from spreadsheet
 function getRowData(rowIndex) {
-    const row = document.querySelector(`#tableBody tr[data-row="${rowIndex}"]`);
-    if (!row) return null;
+    const data = spreadsheet.getRowData(rowIndex);
+    if (!data || !data[0] || data[0].toString().trim() === '') return null;
 
-    const getValue = (col, defaultVal = 0) => {
-        const input = row.querySelector(`[data-col="${col}"]`);
-        if (!input) return defaultVal;
-        const val = parseFloat(input.value);
-        return isNaN(val) ? defaultVal : val;
+    const getValue = (val, defaultVal = 0) => {
+        if (val === '' || val === null || val === undefined) return defaultVal;
+        const num = parseFloat(val);
+        return isNaN(num) ? defaultVal : num;
     };
-
-    const getTextValue = (col) => {
-        const input = row.querySelector(`[data-col="${col}"]`);
-        return input ? input.value.trim() : '';
-    };
-
-    const name = getTextValue(0);
-    if (!name) return null;
 
     return {
-        name: name,
-        Mu: getValue(1),
-        Vu: getValue(2),
-        Nu: getValue(3),
-        Ms: getValue(4),
-        H: getValue(5),
-        B: getValue(6),
-        Dc: getValue(7),
-        As_Dia: getValue(8, 13),
-        As_Num: getValue(9),
-        delta: getValue(10, 1),
-        Av_Dia: getValue(11, 16),
-        Av_Leg: getValue(12, 2),
-        Av_Space: getValue(13, 300)
+        name: data[0].toString().trim(),
+        Mu: getValue(data[1]),
+        Vu: getValue(data[2]),
+        Nu: getValue(data[3]),
+        Ms: getValue(data[4]),
+        H: getValue(data[5]),
+        B: getValue(data[6]),
+        Dc: getValue(data[7]),
+        As_Dia: getValue(data[8], 13),
+        As_Num: getValue(data[9]),
+        delta: getValue(data[10], 1),
+        Av_Dia: getValue(data[11], 16),
+        Av_Leg: getValue(data[12], 2),
+        Av_Space: getValue(data[13], 300)
     };
 }
 
-// Set result cells
+// Set result cells in spreadsheet
 function setResultCells(rowIndex, Asreq, Asused, ratio) {
-    const row = document.querySelector(`#tableBody tr[data-row="${rowIndex}"]`);
-    if (!row) return;
-
-    const cells = row.querySelectorAll('.result-cell');
-    cells[0].textContent = Asreq.toFixed(1);
-    cells[1].textContent = Asused.toFixed(1);
-    cells[2].textContent = ratio.toFixed(2);
-
-    // Color coding
-    if (ratio >= 1) {
-        cells[2].classList.add('result-ok');
-        cells[2].classList.remove('result-ng');
-    } else {
-        cells[2].classList.add('result-ng');
-        cells[2].classList.remove('result-ok');
-    }
+    spreadsheet.setValueFromCoords(14, rowIndex, Asreq.toFixed(1), true);
+    spreadsheet.setValueFromCoords(15, rowIndex, Asused.toFixed(1), true);
+    spreadsheet.setValueFromCoords(16, rowIndex, ratio.toFixed(2), true);
 }
 
 // Calculate all sections
@@ -297,7 +261,7 @@ function calculate() {
             setResultCells(i, sec.Asreq, sec.Asuse, ratio);
             calcCount++;
 
-            // 철근량 부족 단면 수집
+            // Collect insufficient sections
             if (ratio > 0 && ratio < 1.0) {
                 insufficientSections.push({
                     name: rowData.name,
@@ -310,7 +274,7 @@ function calculate() {
 
         updateStatus(`계산 완료 (${calcCount}개 단면)`);
 
-        // 철근량 부족 단면 경고
+        // Alert for insufficient sections
         if (insufficientSections.length > 0) {
             let msg = '철근량이 부족한 단면이 있습니다.\n\n';
             msg += '단면명\t\t필요철근량\t사용철근량\t비율\n';
@@ -478,24 +442,12 @@ function newFile() {
         document.getElementById('Oc').value = '0.85';
         document.getElementById('Os').value = '0.85';
 
-        // Reset table
+        // Reset spreadsheet
+        const emptyData = [];
         for (let i = 0; i < ROW_COUNT; i++) {
-            const row = document.querySelector(`#tableBody tr[data-row="${i}"]`);
-            for (let j = 0; j <= 13; j++) {
-                const input = row.querySelector(`[data-col="${j}"]`);
-                if (input) {
-                    if (j === 8) input.value = '13';
-                    else if (j === 10) input.value = '1';
-                    else if (j === 11) input.value = '16';
-                    else if (input.tagName === 'INPUT') input.value = '';
-                }
-            }
-            // Clear results
-            row.querySelectorAll('.result-cell').forEach(cell => {
-                cell.textContent = '';
-                cell.classList.remove('result-ok', 'result-ng');
-            });
+            emptyData.push(['', '', '', '', '', '', '', '', '13', '', 1, '16', '', '', '', '', '']);
         }
+        spreadsheet.setData(emptyData);
 
         updateStatus('새 파일');
     }
@@ -587,22 +539,10 @@ function loadData(data) {
     document.getElementById('Oc').value = mat.Oc || 0.85;
     document.getElementById('Os').value = mat.Os || 0.85;
 
-    // Clear table first
+    // Prepare spreadsheet data
+    const sheetData = [];
     for (let i = 0; i < ROW_COUNT; i++) {
-        const row = document.querySelector(`#tableBody tr[data-row="${i}"]`);
-        for (let j = 0; j <= 13; j++) {
-            const input = row.querySelector(`[data-col="${j}"]`);
-            if (input) {
-                if (j === 8) input.value = '13';
-                else if (j === 10) input.value = '1';
-                else if (j === 11) input.value = '16';
-                else if (input.tagName === 'INPUT') input.value = '';
-            }
-        }
-        row.querySelectorAll('.result-cell').forEach(cell => {
-            cell.textContent = '';
-            cell.classList.remove('result-ok', 'result-ng');
-        });
+        sheetData.push(['', '', '', '', '', '', '', '', '13', '', 1, '16', '', '', '', '', '']);
     }
 
     // Load sections
@@ -610,23 +550,26 @@ function loadData(data) {
     sections.forEach((section, i) => {
         if (i >= ROW_COUNT) return;
 
-        const row = document.querySelector(`#tableBody tr[data-row="${i}"]`);
-
-        row.querySelector('[data-col="0"]').value = section.name || '';
-        row.querySelector('[data-col="1"]').value = section.forces?.Mu || '';
-        row.querySelector('[data-col="2"]').value = section.forces?.Vu || '';
-        row.querySelector('[data-col="3"]').value = section.forces?.Nu || '';
-        row.querySelector('[data-col="4"]').value = section.forces?.Ms || '';
-        row.querySelector('[data-col="5"]').value = section.geometry?.H || '';
-        row.querySelector('[data-col="6"]').value = section.geometry?.B || '';
-        row.querySelector('[data-col="7"]').value = section.geometry?.Dc || '';
-        row.querySelector('[data-col="8"]').value = Math.round(section.flexure_rebar?.dia || 13);
-        row.querySelector('[data-col="9"]').value = section.flexure_rebar?.num || '';
-        row.querySelector('[data-col="10"]').value = section.delta || 1;
-        row.querySelector('[data-col="11"]').value = Math.round(section.shear_rebar?.dia || 16);
-        row.querySelector('[data-col="12"]').value = section.shear_rebar?.leg || '';
-        row.querySelector('[data-col="13"]').value = section.shear_rebar?.space || '';
+        sheetData[i] = [
+            section.name || '',
+            section.forces?.Mu || '',
+            section.forces?.Vu || '',
+            section.forces?.Nu || '',
+            section.forces?.Ms || '',
+            section.geometry?.H || '',
+            section.geometry?.B || '',
+            section.geometry?.Dc || '',
+            String(Math.round(section.flexure_rebar?.dia || 13)),
+            section.flexure_rebar?.num || '',
+            section.delta || 1,
+            String(Math.round(section.shear_rebar?.dia || 16)),
+            section.shear_rebar?.leg || '',
+            section.shear_rebar?.space || '',
+            '', '', ''
+        ];
     });
+
+    spreadsheet.setData(sheetData);
 }
 
 // Download file helper
@@ -650,6 +593,10 @@ function updateStatus(message) {
 // Show release notes
 function showReleaseNotes() {
     const releaseContent = `# ESC_RCSEC WEB Release Notes
+
+## v1.2 (2026-01-26)
+- Excel 스타일 스프레드시트 UI 적용 (jspreadsheet)
+- 셀 복사/붙여넣기, 드래그 선택 등 Excel 기능 지원
 
 ## v1.1 (2026-01-26)
 - phi_c, phi_s 기본값 0.85로 변경
