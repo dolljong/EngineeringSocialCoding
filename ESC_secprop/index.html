@@ -55,7 +55,34 @@
 <body>
     <div id="left-panel">
         <h1 style="font-size:1.3em; margin-bottom:10px;">단면 특성 계산기</h1>
-        <p style="font-size:13px; margin-bottom:10px;">주의: 절점을 시계 방향 또는 반시계 방향으로 일관되게 입력하세요. 방향은 상관없지만 순서는 연속적이어야 합니다.</p>
+        <p id="inputHint" style="font-size:13px; margin-bottom:10px;">주의: 절점을 시계 방향 또는 반시계 방향으로 일관되게 입력하세요. 방향은 상관없지만 순서는 연속적이어야 합니다.</p>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:8px;">
+            <label style="font-size:13px; white-space:nowrap;">입력 방식:</label>
+            <select id="inputMode" style="flex:1; padding:4px;" onchange="onInputModeChange()">
+                <option value="polygon">폐곡선 (좌표열)</option>
+                <option value="pieces">조각 (직사각형/직각삼각형)</option>
+            </select>
+        </div>
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom:8px;">
+            <label style="font-size:13px; white-space:nowrap;">재료 수:</label>
+            <select id="materialCount" style="flex:1; padding:4px;" onchange="onMaterialCountChange()">
+                <option value="1">1개</option>
+                <option value="2">2개 (환산단면)</option>
+            </select>
+        </div>
+        <div id="materialDefRow" style="display:none; flex-direction:column; gap:5px; margin-bottom:10px; padding:8px; background:#f5f5f5; border-radius:4px; font-size:12px;">
+            <div style="display:flex; gap:5px; align-items:center;">
+                <label style="white-space:nowrap; width:55px;">재료1 E:</label>
+                <input type="number" id="E1" style="flex:1; padding:3px;" value="1" step="any" onchange="onMaterialDefChange()">
+                <label style="white-space:nowrap;"><input type="radio" name="refMat" value="1" checked onchange="onMaterialDefChange()"> 기준</label>
+            </div>
+            <div style="display:flex; gap:5px; align-items:center;">
+                <label style="white-space:nowrap; width:55px;">재료2 E:</label>
+                <input type="number" id="E2" style="flex:1; padding:3px;" value="1" step="any" onchange="onMaterialDefChange()">
+                <label style="white-space:nowrap;"><input type="radio" name="refMat" value="2" onchange="onMaterialDefChange()"> 기준</label>
+            </div>
+            <div id="ratioDisplay" style="color:#555;"></div>
+        </div>
         <div style="display:flex; gap:5px; margin-bottom:10px;">
             <select id="exampleSelect" style="flex:1; padding:8px;">
                 <option value="hollow">중공 직사각형</option>
@@ -77,14 +104,17 @@
                 <option value="m">m</option>
             </select>
         </div>
-        <div style="display:flex; gap:5px; align-items:center; margin-bottom:10px;">
+        <div id="calcMethodRow" style="display:flex; gap:5px; align-items:center; margin-bottom:10px;">
             <label style="font-size:13px; white-space:nowrap;">계산 방법:</label>
             <select id="calcMethod" style="flex:1; padding:4px;" onchange="onMethodChange()">
                 <option value="green">Green 정리 (선적분)</option>
-                <option value="composite">삼각형 분할 (도심축정리)</option>
+                <option value="composite">사다리꼴 분할 (도심축정리)</option>
             </select>
         </div>
+        <div id="shape1Label" style="display:none; font-size:12px; font-weight:bold; margin-bottom:3px;">재료1 형상</div>
         <textarea id="coordinates" placeholder="첫줄: 변수 (예: H=2, B=1, t=0.2)&#10;이후: 점번호,x수식,y수식 (예:&#10;p1,0,0&#10;p2,p1.x+B,p1.y&#10;p3,p2.x,p2.y+H&#10;p4,0,p3.y)"></textarea>
+        <div id="shape2Label" style="display:none; font-size:12px; font-weight:bold; margin-bottom:3px;">재료2 형상</div>
+        <textarea id="coordinates2" style="display:none;" placeholder="재료2 형상을 입력 (재료1과 동일한 문법)"></textarea>
         <button onclick="calculateProperties()">계산</button>
         <div id="error"></div>
     </div>
@@ -105,12 +135,107 @@
         let centroid = null;
         let lastRawResult = null;  // 입력 단위 기준 원본 결과 저장
         let currentMethod = 'green';  // 'green' 또는 'composite'
-        let highlightedLabel = null;  // 클릭으로 강조된 조각 라벨
+        let currentInputMode = 'polygon';  // 'polygon' 또는 'pieces'
+        let pieces = [];                   // pieces 모드의 사용자 조각 목록 (matIdx 포함)
+        let points2 = [];                  // polygon 모드의 재료2 폐곡선 점들
+        let highlightedLabel = null;       // 클릭으로 강조된 조각 라벨
+        let materialCount = 1;             // 1 또는 2
+        let E1 = 1, E2 = 1;                // 재료별 탄성계수
+        let refMatIdx = 1;                 // 기준 재료 (1 또는 2)
+        const MAT_COLORS = {
+            1: { fill: 'rgba(70,150,90,0.30)',  stroke: 'rgba(20,100,40,0.85)' },
+            2: { fill: 'rgba(70,130,200,0.30)', stroke: 'rgba(20,70,160,0.85)' }
+        };
+
+        function getNFor(matIdx) {
+            if (materialCount === 1) return 1;
+            const E_ref = refMatIdx === 1 ? E1 : E2;
+            if (!E_ref || E_ref === 0) return 1;
+            return (matIdx === 1 ? E1 : E2) / E_ref;
+        }
+
+        function updateRatioDisplay() {
+            const el = document.getElementById('ratioDisplay');
+            if (!el) return;
+            const E_ref = refMatIdx === 1 ? E1 : E2;
+            const n1 = E_ref ? E1 / E_ref : 1;
+            const n2 = E_ref ? E2 / E_ref : 1;
+            el.innerHTML = `기준재료 = M${refMatIdx} (E<sub>ref</sub>=${E_ref})` +
+                ` · n<sub>1</sub>=${n1.toFixed(4)}, n<sub>2</sub>=${n2.toFixed(4)}`;
+        }
+
+        function onMaterialCountChange() {
+            materialCount = parseInt(document.getElementById('materialCount').value, 10);
+            const show2 = materialCount === 2;
+            document.getElementById('materialDefRow').style.display = show2 ? 'flex' : 'none';
+            document.getElementById('shape1Label').style.display = show2 ? 'block' : 'none';
+            document.getElementById('shape2Label').style.display = show2 ? 'block' : 'none';
+            document.getElementById('coordinates2').style.display = show2 ? 'block' : 'none';
+            points = []; points2 = []; pieces = [];
+            centroid = null; lastRawResult = null; highlightedLabel = null;
+            if (show2) updateRatioDisplay();
+            renderResultTable(null);
+            updateShape();
+        }
+
+        function onMaterialDefChange() {
+            E1 = parseFloat(document.getElementById('E1').value) || 1;
+            E2 = parseFloat(document.getElementById('E2').value) || 1;
+            const refChecked = document.querySelector('input[name="refMat"]:checked');
+            refMatIdx = refChecked ? parseInt(refChecked.value, 10) : 1;
+            updateRatioDisplay();
+            if (lastRawResult) {
+                // 재료비만 바뀌어도 재계산 필요
+                calculateProperties();
+            }
+        }
 
         function highlightPiece(label) {
             highlightedLabel = (highlightedLabel === label) ? null : label;
             if (lastRawResult) renderResultTable(lastRawResult);
             drawSection();
+        }
+
+        function onInputModeChange() {
+            currentInputMode = document.getElementById('inputMode').value;
+            points = [];
+            pieces = [];
+            centroid = null;
+            lastRawResult = null;
+            highlightedLabel = null;
+            // 계산방법 행은 폐곡선 모드에서만 사용 (조각 모드는 항상 사다리꼴 분할 결과 동일)
+            document.getElementById('calcMethodRow').style.display =
+                currentInputMode === 'polygon' ? 'flex' : 'none';
+            updateExampleList();
+            updatePlaceholder();
+            document.getElementById('coordinates').value = '';
+            document.getElementById('error').textContent = '';
+            renderResultTable(null);
+            drawSection();
+        }
+
+        function updateExampleList() {
+            const sel = document.getElementById('exampleSelect');
+            sel.innerHTML = currentInputMode === 'polygon'
+                ? '<option value="hollow">중공 직사각형</option>' +
+                  '<option value="steelbox">강박스거더</option>' +
+                  '<option value="psc">PSC거더</option>'
+                : '<option value="ibeam">I-빔</option>' +
+                  '<option value="steelbox_p">강박스거더</option>' +
+                  '<option value="psc_p">PSC거더</option>' +
+                  '<option value="steelbox_slab_p">강박스+슬래브 (합성)</option>';
+        }
+
+        function updatePlaceholder() {
+            const ta = document.getElementById('coordinates');
+            const hint = document.getElementById('inputHint');
+            if (currentInputMode === 'polygon') {
+                ta.placeholder = '첫줄: 변수 (예: H=2, B=1, t=0.2)\n이후: 점번호,x수식,y수식 (예:\np1,0,0\np2,p1.x+B,p1.y\np3,p2.x,p2.y+H\np4,0,p3.y)';
+                hint.textContent = '주의: 절점을 시계 방향 또는 반시계 방향으로 일관되게 입력하세요. 방향은 상관없지만 순서는 연속적이어야 합니다.';
+            } else {
+                ta.placeholder = '첫줄: 변수 (예: B=300, H=500, t=20)\n이후: 이름,R|T,x,y,b,h\n  R: 삽입점=한 코너, b·h=폭·높이 (부호로 방향 지정)\n  T: 직각삼각형, 직각=삽입점, 다른 두 꼭짓점=(x+b,y),(x,y+h)\n예:\nbf,R,0,0,B,t\nweb,R,(B-t)/2,t,t,H-2*t';
+                hint.textContent = '각 줄: 이름, 유형(R/T), 삽입점 (x,y), 폭 b, 높이 h. b/h 부호는 직각이 바운딩 박스의 어느 코너에 있는지 결정 (면적은 항상 양수).';
+            }
         }
 
         // 단위 변환: toMm 기준 환산 계수
@@ -201,16 +326,29 @@
 
         function drawSection() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (points.length < 3) return;
+            const isPieces = currentInputMode === 'pieces';
+            let allVerts;
+            if (isPieces) {
+                if (!pieces || pieces.length === 0) return;
+                allVerts = pieces.flatMap(p => p.vertices);
+            } else {
+                const havePoly1 = points.length >= 3;
+                const havePoly2 = materialCount === 2 && points2.length >= 3;
+                if (!havePoly1 && !havePoly2) return;
+                allVerts = [];
+                if (havePoly1) allVerts = allVerts.concat(points.map(p => [p.x, p.y]));
+                if (havePoly2) allVerts = allVerts.concat(points2.map(p => [p.x, p.y]));
+            }
 
             const margin = 40;
-            const minX = Math.min(...points.map(p => p.x));
-            const maxX = Math.max(...points.map(p => p.x));
-            const minY = Math.min(...points.map(p => p.y));
-            const maxY = Math.max(...points.map(p => p.y));
+            const minX = Math.min(...allVerts.map(v => v[0]));
+            const maxX = Math.max(...allVerts.map(v => v[0]));
+            const minY = Math.min(...allVerts.map(v => v[1]));
+            const maxY = Math.max(...allVerts.map(v => v[1]));
             const drawW = canvas.width - 2 * margin;
             const drawH = canvas.height - 2 * margin;
             if (drawW <= 0 || drawH <= 0) return;
+            if (maxX === minX || maxY === minY) return;
             const baseScale = Math.min(drawW / (maxX - minX), drawH / (maxY - minY)) * 0.85;
 
             // 도형을 그리기 영역 중앙에 배치
@@ -230,88 +368,92 @@
                 return (by - canvas.height / 2) * viewZoom + canvas.height / 2 + panY;
             }
 
-            const showTriangles = currentMethod === 'composite'
-                && lastRawResult && lastRawResult.compositeData;
+            const showTriangles = isPieces
+                || (currentMethod === 'composite'
+                    && lastRawResult && lastRawResult.compositeData);
 
-            // Draw shape
-            ctx.beginPath();
-            ctx.moveTo(transformX(points[0].x), transformY(points[0].y));
-            for (let i = 1; i < points.length; i++) {
-                ctx.lineTo(transformX(points[i].x), transformY(points[i].y));
-            }
-            ctx.closePath();
-            if (!showTriangles) {
-                ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-                ctx.fill();
-            }
-            ctx.strokeStyle = 'green';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            // 사다리꼴 분할 오버레이 (composite 방법)
-            if (showTriangles) {
-                const cdata = lastRawResult.compositeData;
-                const pieces = cdata.triangles;
-
-                // 기준선 y = y_ref
-                const yRefScreen = transformY(cdata.y_ref);
-                ctx.setLineDash([4, 3]);
-                ctx.strokeStyle = 'rgba(120,120,120,0.7)';
-                ctx.lineWidth = 1;
+            // 폐곡선 모드: 외곽선 (재료별 색상)
+            function drawPolygon(pts, matIdx) {
+                if (!pts || pts.length < 3) return;
                 ctx.beginPath();
-                ctx.moveTo(transformX(minX) - 25, yRefScreen);
-                ctx.lineTo(transformX(maxX) + 25, yRefScreen);
+                ctx.moveTo(transformX(pts[0].x), transformY(pts[0].y));
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(transformX(pts[i].x), transformY(pts[i].y));
+                }
+                ctx.closePath();
+                if (!showTriangles) {
+                    ctx.fillStyle = MAT_COLORS[matIdx].fill;
+                    ctx.fill();
+                }
+                ctx.strokeStyle = MAT_COLORS[matIdx].stroke;
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.fillStyle = 'rgba(80,80,80,0.85)';
-                ctx.font = '11px Arial';
-                ctx.fillText('기준선 y = ' + cdata.y_ref,
-                    transformX(maxX) + 28, yRefScreen + 4);
+            }
+            if (!isPieces) {
+                drawPolygon(points, 1);
+                if (materialCount === 2) drawPolygon(points2, 2);
+            }
 
-                // 직사각형 (옅은 채움 + 진한 테두리)
+            // 조각 오버레이 (pieces 모드 항상 / polygon-composite 모드)
+            if (showTriangles) {
+                const cdata = lastRawResult && lastRawResult.compositeData;
+                const drawPieces = isPieces ? pieces : cdata.triangles;
+
+                // 기준선 y = y_ref (폐곡선-composite 모드만)
+                if (!isPieces && cdata) {
+                    const yRefScreen = transformY(cdata.y_ref);
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = 'rgba(120,120,120,0.7)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(transformX(minX) - 25, yRefScreen);
+                    ctx.lineTo(transformX(maxX) + 25, yRefScreen);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(80,80,80,0.85)';
+                    ctx.font = '11px Arial';
+                    ctx.fillText('기준선 y = ' + cdata.y_ref,
+                        transformX(maxX) + 28, yRefScreen + 4);
+                }
+
+                // 직사각형 (재료별 색상)
                 ctx.lineWidth = 1.2;
-                for (const p of pieces) {
+                for (const p of drawPieces) {
                     if (p.type !== 'rect') continue;
                     const v = p.vertices;
+                    const mat = MAT_COLORS[p.matIdx || 1];
                     ctx.beginPath();
                     ctx.moveTo(transformX(v[0][0]), transformY(v[0][1]));
                     for (let k = 1; k < v.length; k++) {
                         ctx.lineTo(transformX(v[k][0]), transformY(v[k][1]));
                     }
                     ctx.closePath();
-                    ctx.fillStyle = p.A > 0
-                        ? 'rgba(70,130,200,0.10)'
-                        : 'rgba(200,90,90,0.10)';
+                    ctx.fillStyle = p.A > 0 ? mat.fill : 'rgba(200,90,90,0.10)';
                     ctx.fill();
-                    ctx.strokeStyle = p.A > 0
-                        ? 'rgba(20,70,160,0.85)'
-                        : 'rgba(160,20,20,0.85)';
+                    ctx.strokeStyle = p.A > 0 ? mat.stroke : 'rgba(160,20,20,0.85)';
                     ctx.stroke();
                 }
 
-                // 삼각형 (조금 더 진한 채움 + 진한 테두리)
+                // 삼각형 (재료별 색상)
                 ctx.lineWidth = 1.5;
-                for (const p of pieces) {
+                for (const p of drawPieces) {
                     if (p.type !== 'tri') continue;
                     const v = p.vertices;
+                    const mat = MAT_COLORS[p.matIdx || 1];
                     ctx.beginPath();
                     ctx.moveTo(transformX(v[0][0]), transformY(v[0][1]));
                     ctx.lineTo(transformX(v[1][0]), transformY(v[1][1]));
                     ctx.lineTo(transformX(v[2][0]), transformY(v[2][1]));
                     ctx.closePath();
-                    ctx.fillStyle = p.A > 0
-                        ? 'rgba(100,180,100,0.45)'
-                        : 'rgba(220,80,80,0.45)';
+                    ctx.fillStyle = p.A > 0 ? mat.fill : 'rgba(220,80,80,0.45)';
                     ctx.fill();
-                    ctx.strokeStyle = p.A > 0
-                        ? 'rgba(0,100,0,0.95)'
-                        : 'rgba(170,0,0,0.95)';
+                    ctx.strokeStyle = p.A > 0 ? mat.stroke : 'rgba(170,0,0,0.95)';
                     ctx.stroke();
                 }
 
                 // 각 조각의 도심 (작은 주황 점)
                 ctx.fillStyle = 'rgba(255,140,0,0.85)';
-                for (const p of pieces) {
+                for (const p of drawPieces) {
                     ctx.beginPath();
                     ctx.arc(transformX(p.cx), transformY(p.cy), 2, 0, 2 * Math.PI);
                     ctx.fill();
@@ -322,16 +464,16 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.lineJoin = 'round';
-                for (const p of pieces) {
+                for (const p of drawPieces) {
                     let lx, ly;
-                    if (p.type === 'rect') {
-                        // 직사각형 상단(폐곡선 변) 바로 안쪽
+                    if (!isPieces && p.type === 'rect') {
+                        // 폴리곤-composite 모드: 직사각형 상단(폐곡선 변) 바로 안쪽
                         const topMidX = (p.vertices[1][0] + p.vertices[2][0]) / 2;
                         const topY = p.vertices[1][1];
                         lx = transformX(topMidX);
                         ly = transformY(topY) + 10;
                     } else {
-                        // 삼각형은 도심 위치
+                        // pieces 모드 또는 삼각형: 도심 위치
                         lx = transformX(p.cx);
                         ly = transformY(p.cy);
                     }
@@ -348,7 +490,7 @@
 
                 // 클릭으로 강조된 조각: 두꺼운 주황 테두리
                 if (highlightedLabel) {
-                    const hp = pieces.find(pp => pp.label === highlightedLabel);
+                    const hp = drawPieces.find(pp => pp.label === highlightedLabel);
                     if (hp) {
                         const v = hp.vertices;
                         ctx.beginPath();
@@ -368,33 +510,45 @@
                     }
                 }
 
-                // 폐곡선 외곽선 다시 그려 위로 올림
-                ctx.beginPath();
-                ctx.moveTo(transformX(points[0].x), transformY(points[0].y));
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(transformX(points[i].x), transformY(points[i].y));
+                // 폐곡선 외곽선 다시 그려 위로 올림 (폐곡선 모드만, 재료별 색상)
+                if (!isPieces) {
+                    function strokePoly(pts, matIdx) {
+                        if (!pts || pts.length < 3) return;
+                        ctx.beginPath();
+                        ctx.moveTo(transformX(pts[0].x), transformY(pts[0].y));
+                        for (let i = 1; i < pts.length; i++) {
+                            ctx.lineTo(transformX(pts[i].x), transformY(pts[i].y));
+                        }
+                        ctx.closePath();
+                        ctx.strokeStyle = MAT_COLORS[matIdx].stroke;
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+                    strokePoly(points, 1);
+                    if (materialCount === 2) strokePoly(points2, 2);
+                    ctx.lineWidth = 1;
                 }
-                ctx.closePath();
-                ctx.strokeStyle = 'green';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-                ctx.lineWidth = 1;
             }
 
-            // Draw points and labels
-            ctx.font = '14px Arial';
-            points.forEach((point, index) => {
-                const x = transformX(point.x);
-                const y = transformY(point.y);
-
-                ctx.beginPath();
-                ctx.arc(x, y, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = 'red';
-                ctx.fill();
-
-                ctx.fillStyle = 'black';
-                ctx.fillText(point.id, x + 10, y - 10);
-            });
+            // 폐곡선 모드: 점/라벨 (두 폐곡선 모두)
+            if (!isPieces) {
+                ctx.font = '14px Arial';
+                function drawPolyPoints(pts, color) {
+                    if (!pts || pts.length === 0) return;
+                    pts.forEach((point) => {
+                        const x = transformX(point.x);
+                        const y = transformY(point.y);
+                        ctx.beginPath();
+                        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+                        ctx.fillStyle = color;
+                        ctx.fill();
+                        ctx.fillStyle = 'black';
+                        ctx.fillText(point.id, x + 10, y - 10);
+                    });
+                }
+                drawPolyPoints(points, '#c1272d');
+                if (materialCount === 2) drawPolyPoints(points2, '#1e5fa8');
+            }
 
             // Draw neutral axis (중립축) - dashed line through centroid
             if (centroid) {
@@ -433,37 +587,28 @@
             }
         }
 
-        function updateShape() {
-            const text = document.getElementById('coordinates').value;
+        // 폐곡선 좌표 텍스트를 점 배열로 파싱 (matIdx 태깅).
+        function parsePolygonText(text, matIdx) {
             const lines = text.split('\n')
-                .map(l => l.split(';')[0].trim())   // ; 이후 주석 제거
+                .map(l => l.split(';')[0].trim())
                 .filter(l => l.length > 0);
-
-            // 변수와 좌표 라인 분리
             const vars = {};
             const coordLines = [];
-
             for (const line of lines) {
-                // 변수 라인: "H=2, B=1, t=0.2" (= 포함, 콤마가 2개 미만)
                 if (line.includes('=') && line.split(',').length <= line.split('=').length) {
-                    // 여러 변수를 콤마로 구분
-                    const assignments = line.split(',');
-                    for (const assign of assignments) {
-                        const match = assign.trim().match(/^([a-zA-Z_]\w*)\s*=\s*(.+)$/);
-                        if (match) {
-                            try {
-                                vars[match[1]] = evaluateExpr(match[2], vars, {});
-                            } catch(e) { /* skip */ }
+                    const assigns = line.split(',');
+                    for (const a of assigns) {
+                        const m = a.trim().match(/^([a-zA-Z_]\w*)\s*=\s*(.+)$/);
+                        if (m) {
+                            try { vars[m[1]] = evaluateExpr(m[2], vars, {}); } catch(e){}
                         }
                     }
                 } else {
                     coordLines.push(line);
                 }
             }
-
-            // 좌표 파싱 (수식 지원)
             const pointMap = {};
-            points = [];
+            const pts = [];
             for (const line of coordLines) {
                 const parts = line.split(',').map(s => s.trim());
                 if (parts.length < 3) continue;
@@ -474,18 +619,54 @@
                     const x = evaluateExpr(xExpr, vars, pointMap);
                     const y = evaluateExpr(yExpr, vars, pointMap);
                     if (isNaN(x) || isNaN(y)) continue;
-                    const pt = { id, x, y };
-                    points.push(pt);
+                    const pt = { id, x, y, matIdx };
+                    pts.push(pt);
                     pointMap[id] = pt;
                 } catch(e) { continue; }
             }
+            return pts;
+        }
 
-            if (points.length < 3) {
-                document.getElementById('error').textContent = '최소 3개의 점이 필요합니다';
+        function updateShape() {
+            const text1 = document.getElementById('coordinates').value;
+            const text2 = document.getElementById('coordinates2').value;
+            const err = document.getElementById('error');
+
+            if (currentInputMode === 'pieces') {
+                pieces = parsePieces(text1, 1);
+                if (materialCount === 2) {
+                    pieces = pieces.concat(parsePieces(text2, 2));
+                }
+                points = [];
+                points2 = [];
+                if (pieces.length === 0) {
+                    err.textContent = '최소 1개 조각이 필요합니다 (이름,R|T,x,y,b,h)';
+                } else {
+                    err.textContent = '';
+                }
+                drawSection();
                 return;
             }
 
-            document.getElementById('error').textContent = '';
+            // polygon 모드
+            points = parsePolygonText(text1, 1);
+            points2 = materialCount === 2 ? parsePolygonText(text2, 2) : [];
+            pieces = [];
+
+            const totalPts = points.length + points2.length;
+            if (points.length > 0 && points.length < 3) {
+                err.textContent = '재료1 폐곡선은 최소 3개의 점이 필요합니다';
+                return;
+            }
+            if (materialCount === 2 && points2.length > 0 && points2.length < 3) {
+                err.textContent = '재료2 폐곡선은 최소 3개의 점이 필요합니다';
+                return;
+            }
+            if (totalPts === 0) {
+                err.textContent = '최소 3개의 점이 필요합니다';
+                return;
+            }
+            err.textContent = '';
             drawSection();
         }
 
@@ -504,78 +685,295 @@
             return Function('"use strict"; return (' + s + ')')();
         }
 
-        function calculateProperties() {
-            if (points.length < 3) {
-                document.getElementById('error').textContent = '최소 3개의 점이 필요합니다';
-                document.getElementById('results').textContent = '';
-                return;
+        // 폐곡선 한 개의 도심 기준 단면특성(쉘레이스+평행축).
+        function polygonProperties(pts) {
+            if (!pts || pts.length < 3) return null;
+            let area = 0, cx = 0, cy = 0;
+            for (let i = 0; i < pts.length; i++) {
+                const j = (i + 1) % pts.length;
+                const xi = pts[i].x, yi = pts[i].y;
+                const xj = pts[j].x, yj = pts[j].y;
+                const dA = (xi * yj - xj * yi) / 2;
+                area += dA;
+                cx += (xi + xj) * dA;
+                cy += (yi + yj) * dA;
             }
-
-            let area = 0;
-            let cx = 0;
-            let cy = 0;
-
-            for (let i = 0; i < points.length; i++) {
-                const j = (i + 1) % points.length;
-                const xi = points[i].x, yi = points[i].y;
-                const xj = points[j].x, yj = points[j].y;
-
-                const dArea = (xi * yj - xj * yi) / 2;
-                area += dArea;
-
-                cx += (xi + xj) * dArea;
-                cy += (yi + yj) * dArea;
-            }
-
+            if (Math.abs(area) < 1e-12) return null;
             cx /= (3 * area);
             cy /= (3 * area);
-
-            centroid = { cx, cy };
-
             let Ixx = 0, Iyy = 0, Ixy = 0;
-
-            for (let i = 0; i < points.length; i++) {
-                const j = (i + 1) % points.length;
-                const xi = points[i].x, yi = points[i].y;
-                const xj = points[j].x, yj = points[j].y;
-
+            for (let i = 0; i < pts.length; i++) {
+                const j = (i + 1) % pts.length;
+                const xi = pts[i].x, yi = pts[i].y;
+                const xj = pts[j].x, yj = pts[j].y;
                 Ixx += ((yi*yi + yi*yj + yj*yj) * (xi*yj - xj*yi)) / 12;
                 Iyy += ((xi*xi + xi*xj + xj*xj) * (xi*yj - xj*yi)) / 12;
                 Ixy += ((xi*yj + 2*xi*yi + 2*xj*yj + xj*yi) * (xi*yj - xj*yi)) / 24;
             }
+            return {
+                A: Math.abs(area),
+                cx, cy,
+                Ixx_local: Math.abs(Ixx - area * cy * cy),
+                Iyy_local: Math.abs(Iyy - area * cx * cx),
+                Ixy_local: Ixy - area * cx * cy
+            };
+        }
 
-            Ixx = Math.abs(Ixx - area * cy * cy);
-            Iyy = Math.abs(Iyy - area * cx * cx);
-            Ixy = Ixy - area * cx * cy;
+        function calculateProperties() {
+            if (currentInputMode === 'pieces') {
+                calculateFromPieces();
+                return;
+            }
+            // polygon 모드: 1개 또는 2개 폐곡선 → 환산단면 합산
+            const err = document.getElementById('error');
+            const polys = [];
+            if (points.length >= 3) polys.push({ pts: points, matIdx: 1 });
+            if (materialCount === 2 && points2.length >= 3) {
+                polys.push({ pts: points2, matIdx: 2 });
+            }
+            if (polys.length === 0) {
+                err.textContent = '최소 3개의 점이 필요합니다';
+                document.getElementById('results').textContent = '';
+                return;
+            }
 
-            area = Math.abs(area);
+            // 폐곡선 각각을 "조각"으로 환산 후 합산
+            const polyPieces = [];
+            for (const poly of polys) {
+                const props = polygonProperties(poly.pts);
+                if (!props) continue;
+                polyPieces.push({
+                    name: 'poly' + poly.matIdx,
+                    label: '폐곡선' + poly.matIdx,
+                    type: 'polygon',
+                    ids: ['polygon' + poly.matIdx],
+                    matIdx: poly.matIdx,
+                    vertices: poly.pts.map(p => [p.x, p.y]),
+                    width: 0, height: 0,
+                    A: props.A,
+                    cx: props.cx, cy: props.cy,
+                    Ixx_local: props.Ixx_local,
+                    Iyy_local: props.Iyy_local,
+                    Ixy_local: props.Ixy_local
+                });
+            }
+            const polySummary = summarizePieces(polyPieces, 0);
+            if (!polySummary) {
+                err.textContent = '전체 면적이 0입니다';
+                return;
+            }
+            err.textContent = '';
+            const { area, cx, cy, Ixx, Iyy, Ixy } = polySummary;
+            centroid = { cx, cy };
 
-            // 연단거리 계산 (도심에서 각 방향 최대 거리) + 해당 점번호
-            const ptMaxY = points.reduce((a, b) => b.y > a.y ? b : a);
-            const ptMinY = points.reduce((a, b) => b.y < a.y ? b : a);
-            const ptMaxX = points.reduce((a, b) => b.x > a.x ? b : a);
-            const ptMinX = points.reduce((a, b) => b.x < a.x ? b : a);
+            // composite (사다리꼴 분할) 상세도 다중 폐곡선 통합 지원
+            let compositeData = null;
+            if (currentMethod === 'composite') {
+                const allPieces = [];
+                let totalRect = 0, totalTri = 0;
+                let yRef = Infinity;
+                for (const poly of polys) {
+                    yRef = Math.min(yRef, ...poly.pts.map(p => p.y));
+                    const c = computeComposite(poly.pts, poly.matIdx);
+                    if (c) {
+                        allPieces.push(...c.triangles);
+                        totalRect += c.nRect;
+                        totalTri += c.nTri;
+                    }
+                }
+                compositeData = summarizePieces(allPieces, yRef);
+                if (compositeData) {
+                    compositeData.nRect = totalRect;
+                    compositeData.nTri = totalTri;
+                }
+            }
 
-            const yt = ptMaxY.y - cy;  // y축 + 방향 연단거리 (상단)
-            const yb = cy - ptMinY.y;  // y축 - 방향 연단거리 (하단)
-            const xr = ptMaxX.x - cx;  // x축 + 방향 연단거리 (우측)
-            const xl = cx - ptMinX.x;  // x축 - 방향 연단거리 (좌측)
-
-            // 단면계수 계산 (S = I / y)
-            const Sxt = yt !== 0 ? Ixx / yt : 0;  // x축 상단 단면계수
-            const Sxb = yb !== 0 ? Ixx / yb : 0;  // x축 하단 단면계수
-            const Syr = xr !== 0 ? Iyy / xr : 0;  // y축 우측 단면계수
-            const Syl = xl !== 0 ? Iyy / xl : 0;  // y축 좌측 단면계수
+            // 경계점 (전체 폐곡선 결합)
+            const allPts = polys.flatMap(p => p.pts);
+            const ptMaxY = allPts.reduce((a, b) => b.y > a.y ? b : a);
+            const ptMinY = allPts.reduce((a, b) => b.y < a.y ? b : a);
+            const ptMaxX = allPts.reduce((a, b) => b.x > a.x ? b : a);
+            const ptMinX = allPts.reduce((a, b) => b.x < a.x ? b : a);
 
             lastRawResult = {
                 area, cx, cy, Ixx, Iyy, Ixy,
                 ptMaxY, ptMinY, ptMaxX, ptMinX,
-                yt, yb, xr, xl, Sxt, Sxb, Syr, Syl,
-                compositeData: computeComposite(points)
+                compositeData
             };
             renderResultTable(lastRawResult);
-
             resizeCanvas();
+        }
+
+        // pieces 모드의 단면특성 계산: 사용자 조각 합산 + 환산단면 도심축정리.
+        function calculateFromPieces() {
+            const err = document.getElementById('error');
+            if (!pieces || pieces.length === 0) {
+                err.textContent = '최소 1개 조각이 필요합니다';
+                document.getElementById('results').textContent = '';
+                return;
+            }
+            const summary = summarizePieces(pieces, 0);
+            if (!summary) {
+                err.textContent = '전체 면적이 0입니다 (조각 부호 확인)';
+                return;
+            }
+            err.textContent = '';
+            const { area, cx, cy, Ixx, Iyy, Ixy } = summary;
+            centroid = { cx, cy };
+
+            let pMaxY = pieces[0], yMax = -Infinity;
+            let pMinY = pieces[0], yMin = Infinity;
+            let pMaxX = pieces[0], xMax = -Infinity;
+            let pMinX = pieces[0], xMin = Infinity;
+            for (const p of pieces) {
+                for (const v of p.vertices) {
+                    if (v[1] > yMax) { yMax = v[1]; pMaxY = p; }
+                    if (v[1] < yMin) { yMin = v[1]; pMinY = p; }
+                    if (v[0] > xMax) { xMax = v[0]; pMaxX = p; }
+                    if (v[0] < xMin) { xMin = v[0]; pMinX = p; }
+                }
+            }
+            lastRawResult = {
+                area, cx, cy, Ixx, Iyy, Ixy,
+                ptMaxY: { id: pMaxY.name, y: yMax },
+                ptMinY: { id: pMinY.name, y: yMin },
+                ptMaxX: { id: pMaxX.name, x: xMax },
+                ptMinX: { id: pMinX.name, x: xMin },
+                compositeData: summary
+            };
+            renderResultTable(lastRawResult);
+            resizeCanvas();
+        }
+
+        // 직사각형/직각삼각형 한 조각의 속성 객체 생성 (pieces 모드용).
+        // 면적은 항상 양수 (재료 추가). b/h 부호는 방향(어느 코너에 직각이 있는지)만 결정.
+        // R: 삽입점(x,y) = 한 코너, 폭 b, 높이 h. 꼭짓점 (x,y)→(x+b,y)→(x+b,y+h)→(x,y+h).
+        // T: 직각이 삽입점(x,y), 다른 두 꼭짓점 (x+b,y), (x,y+h).
+        //    -- b,h 부호 4조합으로 직각이 바운딩 박스의 LL/LR/UR/UL 코너 표현.
+        function buildPiece(name, type, x, y, b, h, matIdx) {
+            const mi = matIdx || 1;
+            if (type === 'R') {
+                const A = Math.abs(b * h);
+                return {
+                    name, type: 'rect', label: name,
+                    ids: [name], matIdx: mi,
+                    vertices: [[x,y],[x+b,y],[x+b,y+h],[x,y+h]],
+                    x, y, b, h,
+                    A,
+                    cx: x + b/2,
+                    cy: y + h/2,
+                    width: Math.abs(b),
+                    height: Math.abs(h),
+                    Ixx_local: A * h * h / 12,
+                    Iyy_local: A * b * b / 12,
+                    Ixy_local: 0
+                };
+            }
+            const A = Math.abs(b * h) / 2;
+            return {
+                name, type: 'tri', label: name,
+                ids: [name], matIdx: mi,
+                vertices: [[x,y],[x+b,y],[x,y+h]],
+                x, y, b, h,
+                A,
+                cx: x + b/3,
+                cy: y + h/3,
+                width: Math.abs(b),
+                height: Math.abs(h),
+                Ixx_local: A * h * h / 18,
+                Iyy_local: A * b * b / 18,
+                Ixy_local: -A * b * h / 36
+            };
+        }
+
+        // pieces 모드 텍스트 파싱: "name, R|T, x, y, b, h" 행들 + 변수 라인.
+        function parsePieces(text, matIdx) {
+            const mi = matIdx || 1;
+            const lines = text.split('\n')
+                .map(l => l.split(';')[0].trim())
+                .filter(l => l.length > 0);
+            const vars = {};
+            const dataLines = [];
+            for (const line of lines) {
+                if (line.includes('=') && line.split(',').length <= line.split('=').length) {
+                    const assigns = line.split(',');
+                    for (const a of assigns) {
+                        const m = a.trim().match(/^([a-zA-Z_]\w*)\s*=\s*(.+)$/);
+                        if (m) {
+                            try { vars[m[1]] = evaluateExpr(m[2], vars, {}); } catch(e){}
+                        }
+                    }
+                } else {
+                    dataLines.push(line);
+                }
+            }
+            const result = [];
+            const seen = {};
+            for (const line of dataLines) {
+                const parts = line.split(',').map(s => s.trim());
+                if (parts.length < 6) continue;
+                const name = parts[0];
+                const type = parts[1].toUpperCase();
+                if (type !== 'R' && type !== 'T') continue;
+                if (seen[name]) continue;  // 중복 이름 무시
+                try {
+                    const x = evaluateExpr(parts[2], vars, {});
+                    const y = evaluateExpr(parts[3], vars, {});
+                    const b = evaluateExpr(parts[4], vars, {});
+                    const h = evaluateExpr(parts[5], vars, {});
+                    if ([x,y,b,h].some(v => isNaN(v))) continue;
+                    if (Math.abs(b) < 1e-12 || Math.abs(h) < 1e-12) continue;
+                    result.push(buildPiece(name, type, x, y, b, h, mi));
+                    seen[name] = true;
+                } catch(e) { continue; }
+            }
+            return result;
+        }
+
+        // 미리 만들어진 조각 목록에 대해 환산단면 도심축정리로 합산.
+        // 각 조각의 matIdx에 따라 환산비 n = E_i / E_ref 적용.
+        function summarizePieces(pieceList, refY) {
+            if (!pieceList || pieceList.length === 0) return null;
+            let A_t = 0, Sx_t = 0, Sy_t = 0, nRect = 0, nTri = 0;
+            // 환산비 캐싱
+            const nByMat = { 1: getNFor(1), 2: getNFor(2) };
+            for (const p of pieceList) {
+                const n = nByMat[p.matIdx || 1];
+                p.n = n;
+                p.A_t = p.A * n;     // 환산 면적
+                A_t += p.A_t;
+                Sx_t += p.A_t * p.cx;
+                Sy_t += p.A_t * p.cy;
+                if (p.type === 'rect') nRect++; else nTri++;
+            }
+            if (Math.abs(A_t) < 1e-12) return null;
+            const Cx = Sx_t / A_t;
+            const Cy = Sy_t / A_t;
+            let Ixx_t = 0, Iyy_t = 0, Ixy_t = 0;
+            for (const p of pieceList) {
+                const ddx = p.cx - Cx;
+                const ddy = p.cy - Cy;
+                p.Ixx_parallel = p.A_t * ddy * ddy;
+                p.Iyy_parallel = p.A_t * ddx * ddx;
+                p.Ixy_parallel = p.A_t * ddx * ddy;
+                p.Ixx_contrib = p.n * p.Ixx_local + p.Ixx_parallel;
+                p.Iyy_contrib = p.n * p.Iyy_local + p.Iyy_parallel;
+                p.Ixy_contrib = p.n * p.Ixy_local + p.Ixy_parallel;
+                Ixx_t += p.Ixx_contrib;
+                Iyy_t += p.Iyy_contrib;
+                Ixy_t += p.Ixy_contrib;
+            }
+            return {
+                triangles: pieceList,
+                nRect, nTri,
+                y_ref: refY ?? 0,
+                A_signed: A_t,
+                area: Math.abs(A_t),
+                cx: Cx, cy: Cy,
+                Ixx: Math.abs(Ixx_t),
+                Iyy: Math.abs(Iyy_t),
+                Ixy: Ixy_t
+            };
         }
 
         // 각 변(P_i → P_{i+1})에 대해 기준선 y=y_ref까지의 사다리꼴 영역을
@@ -583,12 +981,14 @@
         //   - 삼각형 (xi,yi)-(xj,yj)-(xj,yi)                  [기울어진 윗부분]
         // 으로 분해. 수직 변(Δx=0)은 기여 없음, 수평 변(Δy=0)은 직사각형만 생성.
         // 각 조각의 도심 기준 국부 I 산출 후, 도심축정리로 합산.
-        function computeComposite(pts) {
+        function computeComposite(pts, matIdx) {
             if (!pts || pts.length < 3) return null;
+            const mi = matIdx || 1;
             const y_ref = Math.min(...pts.map(p => p.y));
             const pieces = [];
             let A_sum = 0, Sx = 0, Sy = 0;
             let nRect = 0, nTri = 0;
+            const tag = mi === 1 ? '' : '·m2';
 
             for (let i = 0; i < pts.length; i++) {
                 const j = (i + 1) % pts.length;
@@ -596,20 +996,20 @@
                 const xj = pts[j].x, yj = pts[j].y;
                 const dx = xj - xi;
                 const dy = yj - yi;
-                if (Math.abs(dx) < 1e-12) continue;  // 수직 변: 기여 없음
+                if (Math.abs(dx) < 1e-12) continue;
                 const ids = [pts[i].id, pts[j].id];
                 const h_i = yi - y_ref;
 
-                // 직사각형 (가로 부분, yi ≠ y_ref 일 때만)
                 if (Math.abs(h_i) > 1e-12) {
-                    const A = (xi - xj) * h_i;          // 부호 있음
+                    const A = (xi - xj) * h_i;
                     const cx = (xi + xj) / 2;
                     const cy = (y_ref + yi) / 2;
                     nRect++;
                     pieces.push({
                         type: 'rect',
-                        label: 'R' + nRect,
+                        label: 'R' + nRect + tag,
                         ids,
+                        matIdx: mi,
                         vertices: [[xi, y_ref], [xi, yi], [xj, yi], [xj, y_ref]],
                         A, cx, cy,
                         width: Math.abs(dx),
@@ -623,16 +1023,16 @@
                     Sy += A * cy;
                 }
 
-                // 삼각형 (기울어진 부분, dy ≠ 0 일 때만)
                 if (Math.abs(dy) > 1e-12) {
-                    const A = (xi - xj) * dy / 2;        // 부호 있음
+                    const A = (xi - xj) * dy / 2;
                     const cx = (xi + 2 * xj) / 3;
                     const cy = (2 * yi + yj) / 3;
                     nTri++;
                     pieces.push({
                         type: 'tri',
-                        label: 'T' + nTri,
+                        label: 'T' + nTri + tag,
                         ids,
+                        matIdx: mi,
                         vertices: [[xi, yi], [xj, yj], [xj, yi]],
                         A, cx, cy,
                         width: Math.abs(dx),
@@ -681,8 +1081,138 @@
         function loadExample() {
             const type = document.getElementById('exampleSelect').value;
             let data = '';
+            let data2 = '';
             let inUnit = 'mm';
-            if (type === 'hollow') {
+            // 다중재료 예제 설정 (기본은 단일재료)
+            let exMatCount = 1, exE1 = 1, exE2 = 1, exRefMat = 1;
+            if (type === 'steelbox_slab_p') {
+                inUnit = 'mm';
+                exMatCount = 2;
+                exE1 = 7;    // 강박스 (E_steel/E_concrete ≈ 7)
+                exE2 = 1;    // 콘크리트
+                exRefMat = 2; // 콘크리트 기준 (환산단면 관례)
+                data = [
+                    '; --- 재료1: 강박스 (E1=7) ---',
+                    'Bw=2500  ; 내공 폭',
+                    'Hw=2500  ; 내공 높이',
+                    'tf1=24   ; 상부플랜지 두께',
+                    'tf2=20   ; 하부플랜지 두께',
+                    'tw=14    ; 웹 두께',
+                    'oh=30    ; 플랜지 돌출',
+                    'sh=200   ; 보강재 높이',
+                    'st=8     ; 보강재 두께',
+                    'W=2*oh+2*tw+Bw  ; 전체 폭 = 2588',
+                    'flange_b, R, 0,        0,        W,  tf2',
+                    'web_L,    R, oh,       tf2,      tw, Hw',
+                    'web_R,    R, oh+tw+Bw, tf2,      tw, Hw',
+                    'flange_t, R, 0,        tf2+Hw,   W,  tf1',
+                    'bs1, R, oh+tw+Bw/4-st/2,   tf2, st, sh',
+                    'bs2, R, oh+tw+Bw/2-st/2,   tf2, st, sh',
+                    'bs3, R, oh+tw+3*Bw/4-st/2, tf2, st, sh',
+                    'ts1, R, oh+tw+Bw/5-st/2,   tf2+Hw-sh, st, sh',
+                    'ts2, R, oh+tw+2*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                    'ts3, R, oh+tw+3*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                    'ts4, R, oh+tw+4*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                ].join('\n');
+                data2 = [
+                    '; --- 재료2: 콘크리트 슬래브 (E2=1) ---',
+                    'W=2588   ; 강박스 폭 (참조)',
+                    'Htop=2544; 강박스 상면 y = tf2+Hw+tf1',
+                    'Bs=3000  ; 슬래브 폭',
+                    'ts=250   ; 슬래브 두께',
+                    'slab, R, (W-Bs)/2, Htop, Bs, ts   ; 강박스 상부 중앙 정렬',
+                ].join('\n');
+            } else if (type === 'psc') {
+                inUnit = 'mm';
+                data = [
+                    'Bt=440   ; 상부플랜지 폭',
+                    'tt=150   ; 상부플랜지 두께',
+                    'ot=110   ; 상부플랜지 돌출',
+                    'st=50    ; 상부플랜지 경사높이',
+                    'Bb=520   ; 하부플랜지 폭',
+                    'tb=200   ; 하부플랜지 두께',
+                    'ob=150   ; 하부플랜지 돌출',
+                    'sb=150   ; 하부플랜지 경사높이',
+                    'Hw=650   ; 웹 직선부 높이 (총 H = tb+sb+Hw+st+tt = 1200)',
+                    '; --- 외곽 (CCW, 좌하 → 우 → 상 → 좌 → 복귀) ---',
+                    'p1,  0,            0                  ; 좌하',
+                    'p2,  Bb,           0                  ; 우하',
+                    'p3,  Bb,           tb                 ; 하부플랜지 우상',
+                    'p4,  Bb-ob,        tb+sb              ; 우측 경사 상단 (웹 우측 시작)',
+                    'p5,  Bb-ob,        tb+sb+Hw           ; 웹 우상',
+                    'p6,  (Bb+Bt)/2,    tb+sb+Hw+st        ; 상부 경사 우상단 = 상부플랜지 우하',
+                    'p7,  (Bb+Bt)/2,    tb+sb+Hw+st+tt     ; 우상',
+                    'p8,  (Bb-Bt)/2,    p7.y               ; 좌상',
+                    'p9,  (Bb-Bt)/2,    tb+sb+Hw+st        ; 상부 경사 좌상단 = 상부플랜지 좌하',
+                    'p10, ob,           tb+sb+Hw           ; 웹 좌상',
+                    'p11, ob,           tb+sb              ; 좌측 경사 상단 (웹 좌측 시작)',
+                    'p12, 0,            tb                 ; 하부플랜지 좌상',
+                ].join('\n');
+            } else if (type === 'psc_p') {
+                inUnit = 'mm';
+                data = [
+                    'Bt=440   ; 상부플랜지 폭',
+                    'tt=150   ; 상부플랜지 두께',
+                    'ot=110   ; 상부플랜지 돌출',
+                    'st=50    ; 상부플랜지 경사높이',
+                    'Bb=520   ; 하부플랜지 폭',
+                    'tb=200   ; 하부플랜지 두께',
+                    'ob=150   ; 하부플랜지 돌출',
+                    'sb=150   ; 하부플랜지 경사높이',
+                    'Hw=650   ; 웹 직선부 높이 (총 H = 1200)',
+                    'Bw=Bb-2*ob   ; 웹 폭 (= Bt-2*ot = 220)',
+                    '; --- 주요 부재 ---',
+                    'flange_b, R, 0,         0,            Bb, tb        ; 하부플랜지',
+                    'web,      R, ob,        tb+sb,        Bw, Hw        ; 웹',
+                    'flange_t, R, (Bb-Bt)/2, tb+sb+Hw+st,  Bt, tt        ; 상부플랜지',
+                    '; --- 경사부 중앙 (웹 폭 Bw 에 해당하는 사각형) ---',
+                    'bs_center, R, ob,       tb,           Bw, sb        ; 하부 경사 중앙',
+                    'ts_center, R, ob,       tb+sb+Hw,     Bw, st        ; 상부 경사 중앙',
+                    '; --- 경사부 좌우 (각 1개 직각삼각형, b/h 부호로 직각 위치 지정) ---',
+                    'bs_L, T, ob,    tb,           -ob, sb               ; 하부 좌측 (직각=LR)',
+                    'bs_R, T, Bb-ob, tb,            ob, sb               ; 하부 우측 (직각=LL)',
+                    'ts_L, T, ob,    tb+sb+Hw+st,  -ot, -st              ; 상부 좌측 (직각=UR)',
+                    'ts_R, T, Bb-ob, tb+sb+Hw+st,   ot, -st              ; 상부 우측 (직각=UL)',
+                ].join('\n');
+            } else if (type === 'ibeam') {
+                inUnit = 'mm';
+                data = [
+                    'H=500   ; 전체 높이',
+                    'B=300   ; 플랜지 폭',
+                    'ft=20   ; 플랜지 두께',
+                    'tw=10   ; 웹 두께',
+                    'flg_b, R, 0,         0,        B,  ft        ; 하부플랜지',
+                    'web,   R, (B-tw)/2,  ft,       tw, H-2*ft    ; 웹',
+                    'flg_t, R, 0,         H-ft,     B,  ft        ; 상부플랜지',
+                ].join('\n');
+            } else if (type === 'steelbox_p') {
+                inUnit = 'mm';
+                data = [
+                    'Bw=2500  ; 내공 폭',
+                    'Hw=2500  ; 내공 높이',
+                    'tf1=24   ; 상부플랜지 두께',
+                    'tf2=20   ; 하부플랜지 두께',
+                    'tw=14    ; 웹 두께',
+                    'oh=30    ; 플랜지 돌출',
+                    'sh=200   ; 보강재 높이',
+                    'st=8     ; 보강재 두께',
+                    'W=2*oh+2*tw+Bw  ; 전체 폭',
+                    '; --- 주요 부재 ---',
+                    'flange_b, R, 0,        0,        W,  tf2     ; 하부플랜지',
+                    'web_L,    R, oh,       tf2,      tw, Hw      ; 좌측웹',
+                    'web_R,    R, oh+tw+Bw, tf2,      tw, Hw      ; 우측웹',
+                    'flange_t, R, 0,        tf2+Hw,   W,  tf1     ; 상부플랜지',
+                    '; --- 하부보강재 (3개, 좌→우) ---',
+                    'bs1, R, oh+tw+Bw/4-st/2,   tf2, st, sh',
+                    'bs2, R, oh+tw+Bw/2-st/2,   tf2, st, sh',
+                    'bs3, R, oh+tw+3*Bw/4-st/2, tf2, st, sh',
+                    '; --- 상부보강재 (4개, 좌→우) ---',
+                    'ts1, R, oh+tw+Bw/5-st/2,   tf2+Hw-sh, st, sh',
+                    'ts2, R, oh+tw+2*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                    'ts3, R, oh+tw+3*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                    'ts4, R, oh+tw+4*Bw/5-st/2, tf2+Hw-sh, st, sh',
+                ].join('\n');
+            } else if (type === 'hollow') {
                 inUnit = 'm';
                 data = [
                     'B=1   ; 폭',
@@ -769,11 +1299,27 @@
             }
             document.getElementById('inputUnit').value = inUnit;
             document.getElementById('outputUnit').value = inUnit;
+            // 다중재료 예제: 재료 수 / E / 기준 먼저 적용 (onMaterialCountChange는 textarea를 읽음)
+            if (exMatCount === 2) {
+                document.getElementById('E1').value = exE1;
+                document.getElementById('E2').value = exE2;
+                const refRadio = document.querySelector(
+                    `input[name="refMat"][value="${exRefMat}"]`);
+                if (refRadio) refRadio.checked = true;
+                E1 = exE1; E2 = exE2; refMatIdx = exRefMat;
+                updateRatioDisplay();
+            }
             document.getElementById('coordinates').value = data;
+            document.getElementById('coordinates2').value = data2;
+            if (materialCount !== exMatCount) {
+                document.getElementById('materialCount').value = String(exMatCount);
+                onMaterialCountChange();
+            } else {
+                updateShape();
+            }
             lastRawResult = null;
             renderResultTable(null);
             viewZoom = 1; panX = 0; panY = 0;
-            updateShape();
         }
 
         function renderResultTable(d) {
@@ -791,77 +1337,53 @@
             const s = (val) => d ? val : '';
 
             const u = outU;
+            const isComposite = materialCount === 2;
+            const refLabel = isComposite ? ` (기준재료 M${refMatIdx})` : '';
             let html = `
                 <table class="result-table">
                     <tr>
-                        <th colspan="3">단면 특성</th>
-                        <th colspan="5">연단거리 / 단면계수</th>
+                        <th colspan="3">단면 특성${refLabel}</th>
                     </tr>
                     <tr>
                         <th>항목</th>
                         <th>값</th>
                         <th>단위</th>
-                        <th>위치</th>
-                        <th>점</th>
-                        <th>연단거리</th>
-                        <th>단면계수 (S)</th>
-                        <th>단위</th>
                     </tr>
                     <tr>
-                        <td>A (단면적)</td>
+                        <td>A${isComposite ? ' (환산)' : ''}</td>
                         <td>${d ? v2(d.area) : ''}</td>
                         <td>${u}²</td>
-                        <td>y (+) 상단</td>
-                        <td>${d ? s(d.ptMaxY.id) : ''}</td>
-                        <td>${d ? v1(d.yt) : ''}</td>
-                        <td>${d ? v3(d.Sxt) : ''}</td>
-                        <td>${d ? u : ''}${d ? '³' : ''}</td>
                     </tr>
                     <tr>
-                        <td>Cx (도심 x)</td>
+                        <td>Cx${isComposite ? ' (환산도심)' : ''}</td>
                         <td>${d ? v1(d.cx) : ''}</td>
                         <td>${u}</td>
-                        <td>y (-) 하단</td>
-                        <td>${d ? s(d.ptMinY.id) : ''}</td>
-                        <td>${d ? v1(d.yb) : ''}</td>
-                        <td>${d ? v3(d.Sxb) : ''}</td>
-                        <td>${d ? u : ''}${d ? '³' : ''}</td>
                     </tr>
                     <tr>
-                        <td>Cy (도심 y)</td>
+                        <td>Cy${isComposite ? ' (환산도심)' : ''}</td>
                         <td>${d ? v1(d.cy) : ''}</td>
                         <td>${u}</td>
-                        <td>x (+) 우측</td>
-                        <td>${d ? s(d.ptMaxX.id) : ''}</td>
-                        <td>${d ? v1(d.xr) : ''}</td>
-                        <td>${d ? v3(d.Syr) : ''}</td>
-                        <td>${d ? u : ''}${d ? '³' : ''}</td>
                     </tr>
                     <tr>
-                        <td>Ixx (x축)</td>
+                        <td>Ixx${isComposite ? ' (환산)' : ''}</td>
                         <td>${d ? v4(d.Ixx) : ''}</td>
                         <td>${u}⁴</td>
-                        <td>x (-) 좌측</td>
-                        <td>${d ? s(d.ptMinX.id) : ''}</td>
-                        <td>${d ? v1(d.xl) : ''}</td>
-                        <td>${d ? v3(d.Syl) : ''}</td>
-                        <td>${d ? u : ''}${d ? '³' : ''}</td>
                     </tr>
                     <tr>
-                        <td>Iyy (y축)</td>
+                        <td>Iyy${isComposite ? ' (환산)' : ''}</td>
                         <td>${d ? v4(d.Iyy) : ''}</td>
                         <td>${u}⁴</td>
-                        <td colspan="5" rowspan="2"></td>
                     </tr>
                     <tr>
-                        <td>Ixy (극)</td>
+                        <td>Ixy${isComposite ? ' (환산)' : ''}</td>
                         <td>${d ? v4(d.Ixy) : ''}</td>
                         <td>${u}⁴</td>
                     </tr>
                 </table>
             `;
 
-            if (d && currentMethod === 'composite' && d.compositeData) {
+            if (d && d.compositeData
+                && (currentMethod === 'composite' || currentInputMode === 'pieces')) {
                 html += renderCompositeBreakdown(d.compositeData, L, L2, L4, u);
             }
 
@@ -878,11 +1400,16 @@
                 if (highlightedLabel === p.label) classes.push('highlighted');
                 const typeSym = isTri ? '△' : '▭';
                 const typeName = isTri ? '삼각형' : '직사각형';
+                const edgeText = p.ids.length >= 2 ? p.ids.join('→') : '—';
+                const matCell = materialCount === 2
+                    ? `<td>M${p.matIdx || 1} (n=${(p.n != null ? p.n : 1).toFixed(3)})</td>`
+                    : '';
                 rows += `
                     <tr class="${classes.join(' ')}" onclick="highlightPiece('${p.label}')" title="클릭하여 그림에서 강조">
                         <td>${p.label}</td>
                         <td>${typeSym} ${typeName}</td>
-                        <td>${p.ids.join('→')}</td>
+                        ${matCell}
+                        <td>${edgeText}</td>
                         <td>${fmt(p.width * L)}</td>
                         <td>${fmt(p.height * L)}</td>
                         <td>${fmt(p.A * L2)}</td>
@@ -899,9 +1426,10 @@
             }
             const Ixx_signed = c.A_signed >= 0 ? c.Ixx : -c.Ixx;
             const Iyy_signed = c.A_signed >= 0 ? c.Iyy : -c.Iyy;
+            const sumColspan = materialCount === 2 ? 6 : 5;
             const sumRow = `
                 <tr style="background:#e8e8e8; font-weight:bold;">
-                    <td colspan="5">Σ (합계)</td>
+                    <td colspan="${sumColspan}">Σ (합계)</td>
                     <td>${fmt(c.A_signed * L2)}</td>
                     <td>${fmt(c.cx * L)}</td>
                     <td>${fmt(c.cy * L)}</td>
@@ -911,25 +1439,36 @@
                     <td>${fmt(Iyy_signed * L4)}</td>
                 </tr>
             `;
+            const isPieces = currentInputMode === 'pieces';
+            const heading = isPieces
+                ? `조각 합산 상세 (직사각형 ${c.nRect}개 / 삼각형 ${c.nTri}개)`
+                : `사다리꼴 분할 상세 (기준선 y = ${fmt(c.y_ref * L)} ${u}, ` +
+                  `직사각형 ${c.nRect}개 / 삼각형 ${c.nTri}개)`;
+            const description = isPieces
+                ? `사용자 입력 조각 각각의 면적·도심·국부 단면2차모멘트를 구한 뒤
+                   <b>도심축정리</b>로 합산:
+                   I<sub>xx</sub> = Σ(I'<sub>xx,k</sub> + A<sub>k</sub>·(C<sub>y,k</sub>−C<sub>y</sub>)²),
+                   I<sub>yy</sub> = Σ(I'<sub>yy,k</sub> + A<sub>k</sub>·(C<sub>x,k</sub>−C<sub>x</sub>)²).
+                   조각 면적은 항상 양수 (재료 추가). b·h 부호는 직각이 바운딩 박스의 어느 코너(LL/LR/UR/UL)에 있는지만 지정.`
+                : `각 변 P<sub>i</sub>→P<sub>i+1</sub>에 대해 기준선까지의 사다리꼴을
+                   <b>직사각형(가로 부분)</b> + <b>삼각형(기울어진 윗부분)</b>으로 분해.
+                   수직 변(Δx=0)은 기여 없음, 수평 변(Δy=0)은 직사각형만 생성, 기울어진 변은 둘 다 생성.
+                   도심축정리로 합산: I<sub>xx</sub> = Σ(I'<sub>xx,k</sub> + A<sub>k</sub>·(C<sub>y,k</sub>−C<sub>y</sub>)²),
+                   I<sub>yy</sub> = Σ(I'<sub>yy,k</sub> + A<sub>k</sub>·(C<sub>x,k</sub>−C<sub>x</sub>)²).
+                   빨간 행은 음의 부호 면적(빈공간 / 보조 분할).`;
+            const colSrc = isPieces ? '이름' : '변';
             return `
-                <h3 style="margin:20px 0 6px 0; font-size:14px;">
-                    사다리꼴 분할 상세 (기준선 y = ${fmt(c.y_ref * L)} ${u},
-                    직사각형 ${c.nRect}개 / 삼각형 ${c.nTri}개)
-                </h3>
+                <h3 style="margin:20px 0 6px 0; font-size:14px;">${heading}</h3>
                 <div style="font-size:11px; margin-bottom:8px; color:#555; line-height:1.5;">
-                    각 변 P<sub>i</sub>→P<sub>i+1</sub>에 대해 기준선까지의 사다리꼴을
-                    <b>직사각형(가로 부분)</b> + <b>삼각형(기울어진 윗부분)</b>으로 분해.
-                    수직 변(Δx=0)은 기여 없음, 수평 변(Δy=0)은 직사각형만 생성, 기울어진 변은 둘 다 생성.
-                    도심축정리로 합산: I<sub>xx</sub> = Σ(I'<sub>xx,k</sub> + A<sub>k</sub>·(C<sub>y,k</sub>−C<sub>y</sub>)²),
-                    I<sub>yy</sub> = Σ(I'<sub>yy,k</sub> + A<sub>k</sub>·(C<sub>x,k</sub>−C<sub>x</sub>)²).
-                    빨간 행은 음의 부호 면적(빈공간 / 보조 분할).
+                    ${description}
                 </div>
                 <div style="overflow-x:auto; max-width:100%;">
                 <table class="result-table" style="font-size:11px;">
                     <tr>
                         <th rowspan="2">#</th>
                         <th rowspan="2">유형</th>
-                        <th rowspan="2">변</th>
+                        ${materialCount === 2 ? '<th rowspan="2">재료 (n)</th>' : ''}
+                        <th rowspan="2">${colSrc}</th>
                         <th rowspan="2">폭 b (${u})</th>
                         <th rowspan="2">높이 h (${u})</th>
                         <th rowspan="2">A<sub>k</sub> (${u}²)</th>
@@ -954,9 +1493,13 @@
         }
 
         document.addEventListener('DOMContentLoaded', (event) => {
+            updateExampleList();
+            updatePlaceholder();
+            updateRatioDisplay();
             renderResultTable(null);
             resizeCanvas();
             document.getElementById('coordinates').addEventListener('input', updateShape);
+            document.getElementById('coordinates2').addEventListener('input', updateShape);
         });
 
         window.addEventListener('resize', resizeCanvas);
