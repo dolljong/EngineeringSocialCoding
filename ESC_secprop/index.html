@@ -219,11 +219,14 @@
             sel.innerHTML = currentInputMode === 'polygon'
                 ? '<option value="hollow">중공 직사각형</option>' +
                   '<option value="steelbox">강박스거더</option>' +
-                  '<option value="psc">PSC거더</option>'
+                  '<option value="psc">PSC거더</option>' +
+                  '<option value="steelbox_slab">강박스+슬래브 (합성)</option>' +
+                  '<option value="psc_slab">PSC거더+슬래브 (합성)</option>'
                 : '<option value="ibeam">I-빔</option>' +
                   '<option value="steelbox_p">강박스거더</option>' +
                   '<option value="psc_p">PSC거더</option>' +
-                  '<option value="steelbox_slab_p">강박스+슬래브 (합성)</option>';
+                  '<option value="steelbox_slab_p">강박스+슬래브 (합성)</option>' +
+                  '<option value="psc_slab_p">PSC거더+슬래브 (합성)</option>';
         }
 
         function updatePlaceholder() {
@@ -530,6 +533,27 @@
                 }
             }
 
+            // 폴리곤 모드 강조: 폐곡선 행 클릭 시 해당 폐곡선 외곽선 강조
+            if (!isPieces && highlightedLabel
+                && lastRawResult && lastRawResult.polygonBreakdown) {
+                const hp = lastRawResult.polygonBreakdown.find(pp => pp.label === highlightedLabel);
+                if (hp && hp.vertices && hp.vertices.length >= 3) {
+                    ctx.beginPath();
+                    ctx.moveTo(transformX(hp.vertices[0][0]), transformY(hp.vertices[0][1]));
+                    for (let k = 1; k < hp.vertices.length; k++) {
+                        ctx.lineTo(transformX(hp.vertices[k][0]), transformY(hp.vertices[k][1]));
+                    }
+                    ctx.closePath();
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                    ctx.stroke();
+                    ctx.lineWidth = 3.5;
+                    ctx.strokeStyle = '#ff6a00';
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+            }
+
             // 폐곡선 모드: 점/라벨 (두 폐곡선 모두)
             if (!isPieces) {
                 ctx.font = '14px Arial';
@@ -798,7 +822,9 @@
             lastRawResult = {
                 area, cx, cy, Ixx, Iyy, Ixy,
                 ptMaxY, ptMinY, ptMaxX, ptMinX,
-                compositeData
+                compositeData,
+                polygonBreakdown: polyPieces,
+                polygonSummary: polySummary
             };
             renderResultTable(lastRawResult);
             resizeCanvas();
@@ -1085,7 +1111,159 @@
             let inUnit = 'mm';
             // 다중재료 예제 설정 (기본은 단일재료)
             let exMatCount = 1, exE1 = 1, exE2 = 1, exRefMat = 1;
-            if (type === 'steelbox_slab_p') {
+            if (type === 'psc_slab') {
+                inUnit = 'mm';
+                exMatCount = 2;
+                exE1 = 1.0;
+                exE2 = 0.926;
+                exRefMat = 1;
+                data = [
+                    '; --- 재료1: PSC 거더 폐곡선 (CCW) ---',
+                    'Bt=440  ; 상부플랜지 폭',
+                    'tt=150  ; 상부플랜지 두께',
+                    'ot=110  ; 상부플랜지 돌출',
+                    'st=50   ; 상부플랜지 경사높이',
+                    'Bb=520  ; 하부플랜지 폭',
+                    'tb=200  ; 하부플랜지 두께',
+                    'ob=150  ; 하부플랜지 돌출',
+                    'sb=150  ; 하부플랜지 경사높이',
+                    'Hw=650  ; 웹 직선부 (총 H=1200)',
+                    'p1,  0,            0',
+                    'p2,  Bb,           0',
+                    'p3,  Bb,           tb',
+                    'p4,  Bb-ob,        tb+sb',
+                    'p5,  Bb-ob,        tb+sb+Hw',
+                    'p6,  (Bb+Bt)/2,    tb+sb+Hw+st',
+                    'p7,  (Bb+Bt)/2,    tb+sb+Hw+st+tt',
+                    'p8,  (Bb-Bt)/2,    p7.y',
+                    'p9,  (Bb-Bt)/2,    tb+sb+Hw+st',
+                    'p10, ob,           tb+sb+Hw',
+                    'p11, ob,           tb+sb',
+                    'p12, 0,            tb',
+                ].join('\n');
+                data2 = [
+                    '; --- 재료2: 콘크리트 슬래브 폐곡선 (CCW) ---',
+                    'Bb=520     ; PSC 거더 폭 (참조)',
+                    'Htop=1200  ; PSC 거더 상면 y',
+                    'Bs=2000    ; 슬래브 폭',
+                    'ts=250     ; 슬래브 두께',
+                    's1, (Bb-Bs)/2, Htop',
+                    's2, (Bb+Bs)/2, Htop',
+                    's3, (Bb+Bs)/2, Htop+ts',
+                    's4, (Bb-Bs)/2, Htop+ts',
+                ].join('\n');
+            } else if (type === 'steelbox_slab') {
+                inUnit = 'mm';
+                exMatCount = 2;
+                exE1 = 7;
+                exE2 = 1;
+                exRefMat = 2;
+                data = [
+                    '; --- 재료1: 강박스거더 폐곡선 (외곽+내곽 bridge) ---',
+                    'Bw=2500  ; 내공 폭',
+                    'Hw=2500  ; 내공 높이',
+                    'tf1=24   ; 상부플랜지 두께',
+                    'tf2=20   ; 하부플랜지 두께',
+                    'tw=14    ; 웹 두께',
+                    'oh=30    ; 플랜지 돌출',
+                    'sh=200   ; 보강재 높이',
+                    'st=8     ; 보강재 두께',
+                    'o1,oh,tf2                 ; 시작점 (하부플랜지 상면 ∩ 좌측웹 외측)',
+                    'o2,0,tf2',
+                    'o3,0,0',
+                    'o4,2*oh+2*tw+Bw,0',
+                    'o5,o4.x,tf2',
+                    'o6,o4.x-oh,tf2',
+                    'o7,o6.x,tf2+Hw',
+                    'o8,o4.x,o7.y',
+                    'o9,o4.x,tf2+Hw+tf1',
+                    'o10,0,o9.y',
+                    'o11,0,o7.y',
+                    'o12,oh,o7.y',
+                    'b1,oh,tf2                 ; 브릿지 (좌측웹 외측 하강)',
+                    'i1,oh+tw,tf2              ; 내곽 좌하',
+                    'i2,oh+tw,tf2+Hw           ; 내곽 좌상',
+                    'i3,oh+tw+Bw/5-st/2,tf2+Hw',
+                    'i4,i3.x,tf2+Hw-sh',
+                    'i5,i3.x+st,i4.y',
+                    'i6,i5.x,tf2+Hw',
+                    'i7,oh+tw+2*Bw/5-st/2,tf2+Hw',
+                    'i8,i7.x,tf2+Hw-sh',
+                    'i9,i7.x+st,i8.y',
+                    'i10,i9.x,tf2+Hw',
+                    'i11,oh+tw+3*Bw/5-st/2,tf2+Hw',
+                    'i12,i11.x,tf2+Hw-sh',
+                    'i13,i11.x+st,i12.y',
+                    'i14,i13.x,tf2+Hw',
+                    'i15,oh+tw+4*Bw/5-st/2,tf2+Hw',
+                    'i16,i15.x,tf2+Hw-sh',
+                    'i17,i15.x+st,i16.y',
+                    'i18,i17.x,tf2+Hw',
+                    'i19,oh+tw+Bw,tf2+Hw       ; 내곽 우상',
+                    'i20,i19.x,tf2             ; 내곽 우하',
+                    'i21,oh+tw+3*Bw/4+st/2,tf2',
+                    'i22,i21.x,tf2+sh',
+                    'i23,i21.x-st,i22.y',
+                    'i24,i23.x,tf2',
+                    'i25,oh+tw+Bw/2+st/2,tf2',
+                    'i26,i25.x,tf2+sh',
+                    'i27,i25.x-st,i26.y',
+                    'i28,i27.x,tf2',
+                    'i29,oh+tw+Bw/4+st/2,tf2',
+                    'i30,i29.x,tf2+sh',
+                    'i31,i29.x-st,i30.y',
+                    'i32,i31.x,tf2',
+                    'i33,oh+tw,tf2             ; 내곽 좌하 복귀',
+                    'i34,oh,tf2                ; 브릿지 복귀 (시작점)',
+                ].join('\n');
+                data2 = [
+                    '; --- 재료2: 콘크리트 슬래브 폐곡선 (CCW) ---',
+                    'W=2588     ; 강박스 폭 (참조 = 2*oh+2*tw+Bw)',
+                    'Htop=2544  ; 강박스 상면 y = tf2+Hw+tf1',
+                    'Bs=3000    ; 슬래브 폭',
+                    'ts=250     ; 슬래브 두께',
+                    's1, (W-Bs)/2, Htop',
+                    's2, (W+Bs)/2, Htop',
+                    's3, (W+Bs)/2, Htop+ts',
+                    's4, (W-Bs)/2, Htop+ts',
+                ].join('\n');
+            } else if (type === 'psc_slab_p') {
+                inUnit = 'mm';
+                exMatCount = 2;
+                exE1 = 1.0;      // PSC 거더 콘크리트
+                exE2 = 0.926;    // 슬래브 콘크리트 (E_slab / E_girder)
+                exRefMat = 1;    // PSC 거더 기준
+                data = [
+                    '; --- 재료1: PSC 거더 (E1=1.0) ---',
+                    'Bt=440   ; 상부플랜지 폭',
+                    'tt=150   ; 상부플랜지 두께',
+                    'ot=110   ; 상부플랜지 돌출',
+                    'st=50    ; 상부플랜지 경사높이',
+                    'Bb=520   ; 하부플랜지 폭',
+                    'tb=200   ; 하부플랜지 두께',
+                    'ob=150   ; 하부플랜지 돌출',
+                    'sb=150   ; 하부플랜지 경사높이',
+                    'Hw=650   ; 웹 직선부 높이 (총 H = 1200)',
+                    'Bw=Bb-2*ob   ; 웹 폭 = 220',
+                    'flange_b, R, 0,         0,            Bb, tb',
+                    'web,      R, ob,        tb+sb,        Bw, Hw',
+                    'flange_t, R, (Bb-Bt)/2, tb+sb+Hw+st,  Bt, tt',
+                    'bs_center, R, ob,       tb,           Bw, sb',
+                    'ts_center, R, ob,       tb+sb+Hw,     Bw, st',
+                    'bs_L, T, ob,    tb,           -ob, sb',
+                    'bs_R, T, Bb-ob, tb,            ob, sb',
+                    'ts_L, T, ob,    tb+sb+Hw+st,  -ot, -st',
+                    'ts_R, T, Bb-ob, tb+sb+Hw+st,   ot, -st',
+                ].join('\n');
+                data2 = [
+                    '; --- 재료2: 콘크리트 슬래브 (E2=0.926) ---',
+                    'Bb=520     ; PSC 거더 폭 (참조)',
+                    'Htop=1200  ; PSC 거더 상면 y = tb+sb+Hw+st+tt',
+                    'Bs=2000    ; 슬래브 폭',
+                    'ts=250     ; 슬래브 두께',
+                    'slab, R, (Bb-Bs)/2, Htop, Bs, ts   ; PSC 상부 중앙 정렬',
+                ].join('\n');
+            } else if (type === 'steelbox_slab_p') {
                 inUnit = 'mm';
                 exMatCount = 2;
                 exE1 = 7;    // 강박스 (E_steel/E_concrete ≈ 7)
@@ -1382,12 +1560,103 @@
                 </table>
             `;
 
+            // 폴리곤 모드 + 다중재료: 폐곡선별 단면특성 + 환산 도심축정리 상세
+            if (d && currentInputMode === 'polygon' && materialCount === 2
+                && d.polygonBreakdown && d.polygonSummary) {
+                html += renderPolygonBreakdown(d.polygonBreakdown, d.polygonSummary, L, L2, L4, u);
+            }
+
             if (d && d.compositeData
                 && (currentMethod === 'composite' || currentInputMode === 'pieces')) {
                 html += renderCompositeBreakdown(d.compositeData, L, L2, L4, u);
             }
 
             document.getElementById('results').innerHTML = html;
+        }
+
+        function renderPolygonBreakdown(polyPieces, summary, L, L2, L4, u) {
+            const fmt = (val) => val.toFixed(4);
+            let rows = '';
+            for (const p of polyPieces) {
+                const matE = p.matIdx === 1 ? E1 : E2;
+                const classes = ['piece-row'];
+                if (highlightedLabel === p.label) classes.push('highlighted');
+                rows += `
+                    <tr class="${classes.join(' ')}" onclick="highlightPiece('${p.label}')" title="클릭하여 그림에서 강조">
+                        <td><b>M${p.matIdx}</b> (${p.label})</td>
+                        <td>${matE}</td>
+                        <td>${(p.n != null ? p.n : 1).toFixed(4)}</td>
+                        <td>${fmt(p.A * L2)}</td>
+                        <td>${fmt(p.cx * L)}</td>
+                        <td>${fmt(p.cy * L)}</td>
+                        <td>${fmt(p.Ixx_local * L4)}</td>
+                        <td>${fmt(p.Iyy_local * L4)}</td>
+                        <td>${fmt(p.A_t * L2)}</td>
+                        <td>${fmt((p.cy - summary.cy) * L)}</td>
+                        <td>${fmt((p.cx - summary.cx) * L)}</td>
+                        <td>${fmt(p.Ixx_parallel * L4)}</td>
+                        <td>${fmt(p.Iyy_parallel * L4)}</td>
+                        <td>${fmt(p.Ixx_contrib * L4)}</td>
+                        <td>${fmt(p.Iyy_contrib * L4)}</td>
+                    </tr>
+                `;
+            }
+            const sumRow = `
+                <tr style="background:#e8e8e8; font-weight:bold;">
+                    <td colspan="3">Σ (환산 합계)</td>
+                    <td>—</td>
+                    <td>${fmt(summary.cx * L)}</td>
+                    <td>${fmt(summary.cy * L)}</td>
+                    <td colspan="2" style="text-align:center;">→</td>
+                    <td>${fmt(summary.A_signed * L2)}</td>
+                    <td colspan="4" style="text-align:center;">→</td>
+                    <td>${fmt(summary.Ixx * L4)}</td>
+                    <td>${fmt(summary.Iyy * L4)}</td>
+                </tr>
+            `;
+            return `
+                <h3 style="margin:20px 0 6px 0; font-size:14px;">
+                    폐곡선별 단면특성 + 환산단면 도심축정리 (기준재료 M${refMatIdx})
+                </h3>
+                <div style="font-size:11px; margin-bottom:8px; color:#555; line-height:1.6;">
+                    각 폐곡선에 대해 쉘레이스로 기하 단면특성(A<sub>k</sub>, C<sub>x,k</sub>, C<sub>y,k</sub>, I'<sub>xx,k</sub>, I'<sub>yy,k</sub>)을 구한 뒤
+                    환산비 n<sub>k</sub> = E<sub>k</sub>/E<sub>ref</sub> 를 적용. <br>
+                    환산도심 C<sub>x</sub> = Σ(n<sub>k</sub>A<sub>k</sub>·C<sub>x,k</sub>)/Σ(n<sub>k</sub>A<sub>k</sub>),
+                    C<sub>y</sub> 동일. <br>
+                    도심축정리 (편차 d<sub>x</sub>=C<sub>x,k</sub>−C<sub>x</sub>, d<sub>y</sub>=C<sub>y,k</sub>−C<sub>y</sub>): <br>
+                    I<sub>xx</sub> = Σ(n<sub>k</sub>·I'<sub>xx,k</sub> + n<sub>k</sub>A<sub>k</sub>·d<sub>y</sub>²),
+                    I<sub>yy</sub> = Σ(n<sub>k</sub>·I'<sub>yy,k</sub> + n<sub>k</sub>A<sub>k</sub>·d<sub>x</sub>²).
+                </div>
+                <div style="overflow-x:auto; max-width:100%;">
+                <table class="result-table" style="font-size:11px;">
+                    <tr>
+                        <th rowspan="2">재료</th>
+                        <th rowspan="2">E</th>
+                        <th rowspan="2">n</th>
+                        <th colspan="5">기하 단면특성 (재료별)</th>
+                        <th rowspan="2">n·A (${u}²)</th>
+                        <th colspan="2">편차 (${u})</th>
+                        <th colspan="2">평행축 (${u}⁴)</th>
+                        <th colspan="2">합산 기여 (${u}⁴)</th>
+                    </tr>
+                    <tr>
+                        <th>A (${u}²)</th>
+                        <th>C<sub>x,k</sub> (${u})</th>
+                        <th>C<sub>y,k</sub> (${u})</th>
+                        <th>I'<sub>xx,k</sub> (${u}⁴)</th>
+                        <th>I'<sub>yy,k</sub> (${u}⁴)</th>
+                        <th>d<sub>y</sub></th>
+                        <th>d<sub>x</sub></th>
+                        <th>n·A·d<sub>y</sub>²</th>
+                        <th>n·A·d<sub>x</sub>²</th>
+                        <th>I<sub>xx,k</sub></th>
+                        <th>I<sub>yy,k</sub></th>
+                    </tr>
+                    ${rows}
+                    ${sumRow}
+                </table>
+                </div>
+            `;
         }
 
         function renderCompositeBreakdown(c, L, L2, L4, u) {
