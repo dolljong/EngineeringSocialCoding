@@ -609,6 +609,19 @@
                 ctx.font = '12px Arial';
                 ctx.fillText('y축 중립축 (N.A.y)', naX + 8, transformY(maxY) - 25);
             }
+
+            // 원점 (0,0) 표시
+            const ox = transformX(0), oy = transformY(0);
+            ctx.beginPath();
+            ctx.arc(ox, oy, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+            ctx.fillStyle = 'red';
+            ctx.font = 'bold 11px Arial';
+            ctx.fillText('(0,0)', ox + 8, oy + 14);
         }
 
         // 폐곡선 좌표 텍스트를 점 배열로 파싱 (matIdx 태깅).
