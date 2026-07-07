@@ -178,6 +178,21 @@ body {
     border: 1px solid #ccc;
 }
 
+/* Design method selector */
+#designMethod {
+    padding: 5px 10px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    min-width: 320px;
+}
+
+/* Method-dependent material columns (toggled from app.js) */
+.material-table.method-lsd .col-usd,
+.material-table.method-usd .col-lsd {
+    display: none;
+}
+
 /* Checkbox Group */
 .checkbox-group {
     display: flex;

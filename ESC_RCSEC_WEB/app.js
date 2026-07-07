@@ -16,8 +16,17 @@ let spreadsheet = null;
 document.addEventListener('DOMContentLoaded', function() {
     initSpreadsheet();
     initEventListeners();
+    updateMethodUI();
     updateStatus('Ready');
 });
+
+// Show material columns matching the selected design method (Øc,Øs vs φf,φv)
+function updateMethodUI() {
+    const method = document.getElementById('designMethod').value || 'lsd';
+    const table = document.getElementById('materialTable');
+    table.classList.toggle('method-usd', method === 'usd');
+    table.classList.toggle('method-lsd', method !== 'usd');
+}
 
 // Initialize jspreadsheet
 function initSpreadsheet() {
@@ -146,6 +155,9 @@ function initEventListeners() {
         });
     });
 
+    // Design method toggle
+    document.getElementById('designMethod').addEventListener('change', updateMethodUI);
+
     // File input
     document.getElementById('fileInput').addEventListener('change', handleFileOpen);
 
@@ -181,11 +193,46 @@ function switchCalcTab(tabId) {
 // Get material data
 function getMaterialData() {
     return {
+        method: document.getElementById('designMethod').value || 'lsd',
         fck: parseFloat(document.getElementById('fck').value) || 35,
         fy: parseFloat(document.getElementById('fy').value) || 400,
-        Oc: parseFloat(document.getElementById('Oc').value) || 0.85,
-        Os: parseFloat(document.getElementById('Os').value) || 0.85
+        Oc: parseFloat(document.getElementById('Oc').value) || 0.65,
+        Os: parseFloat(document.getElementById('Os').value) || 0.90,
+        phif: parseFloat(document.getElementById('phif').value) || 0.85,
+        phiv: parseFloat(document.getElementById('phiv').value) || 0.80
     };
+}
+
+// Build a section calculator for the selected design method.
+// Both SecBack(한계상태) and SecBackUSD(강도설계법) share the datalist interface.
+function buildSection(mat, rowData) {
+    const datalist = [mat.fck, mat.fy];
+    const datalist2 = [rowData.H, rowData.B];
+    const datalist3 = [
+        Math.round(rowData.As_Dia), Math.round(rowData.As_Num), rowData.Dc,
+        0, 0, 0,
+        0, 0, 0
+    ];
+    const datalist4 = [
+        Math.round(rowData.Av_Dia), Math.round(rowData.Av_Leg), rowData.Av_Space,
+        3, 0, 90
+    ];
+    const datalist5 = [rowData.Mu, rowData.Vu, rowData.Nu, rowData.Ms, rowData.Ms, 1];
+
+    if (mat.method === 'usd') {
+        const datalist1 = [mat.phif, mat.phiv];
+        return new SecBackUSD(datalist, datalist1, datalist2, datalist3, datalist4, datalist5);
+    }
+
+    const datalist1 = [mat.Oc, mat.Os];
+    const sec = new SecBack(datalist, datalist1, datalist2, datalist3, datalist4, datalist5);
+    sec.delta = rowData.delta;
+    return sec;
+}
+
+// Select the correct full-calculation formatter for the method
+function fullCalcTextFor(mat, sec) {
+    return mat.method === 'usd' ? getFullCalcTextUSD(sec) : getFullCalcText(sec);
 }
 
 // Get row data from spreadsheet
@@ -235,24 +282,8 @@ function calculate() {
             const rowData = getRowData(i);
             if (!rowData || rowData.H <= 0 || rowData.B <= 0) continue;
 
-            // Prepare data lists
-            const datalist = [mat.fck, mat.fy];
-            const datalist1 = [mat.Oc, mat.Os];
-            const datalist2 = [rowData.H, rowData.B];
-            const datalist3 = [
-                Math.round(rowData.As_Dia), Math.round(rowData.As_Num), rowData.Dc,
-                0, 0, 0,
-                0, 0, 0
-            ];
-            const datalist4 = [
-                Math.round(rowData.Av_Dia), Math.round(rowData.Av_Leg), rowData.Av_Space,
-                3, 0, 90
-            ];
-            const datalist5 = [rowData.Mu, rowData.Vu, rowData.Nu, rowData.Ms, rowData.Ms, 1];
-
-            // Create calculator and run
-            const sec = new SecBack(datalist, datalist1, datalist2, datalist3, datalist4, datalist5);
-            sec.delta = rowData.delta;
+            // Create calculator (method-aware) and run
+            const sec = buildSection(mat, rowData);
             sec.calmoment();
             sec.calshear();
 
@@ -306,36 +337,27 @@ function viewCalc() {
 
         const mat = getMaterialData();
 
-        // Prepare data lists
-        const datalist = [mat.fck, mat.fy];
-        const datalist1 = [mat.Oc, mat.Os];
-        const datalist2 = [rowData.H, rowData.B];
-        const datalist3 = [
-            Math.round(rowData.As_Dia), Math.round(rowData.As_Num), rowData.Dc,
-            0, 0, 0,
-            0, 0, 0
-        ];
-        const datalist4 = [
-            Math.round(rowData.Av_Dia), Math.round(rowData.Av_Leg), rowData.Av_Space,
-            3, 0, 90
-        ];
-        const datalist5 = [rowData.Mu, rowData.Vu, rowData.Nu, rowData.Ms, rowData.Ms, 1];
-
-        // Create calculator and run
-        const sec = new SecBack(datalist, datalist1, datalist2, datalist3, datalist4, datalist5);
-        sec.delta = rowData.delta;
+        // Create calculator (method-aware) and run
+        const sec = buildSection(mat, rowData);
         sec.calmoment();
         sec.calshear();
         sec.calservice();
 
         currentCalcData = sec;
 
-        // Update modal
+        // Update modal (method-specific formatters)
         document.getElementById('modalTitle').textContent = `계산과정 - ${rowData.name}`;
-        document.getElementById('fullCalc').textContent = getFullCalcText(sec);
-        document.getElementById('momentCalc').textContent = getMomentText(sec);
-        document.getElementById('shearCalc').textContent = getShearText(sec);
-        document.getElementById('serviceCalc').textContent = getServiceText(sec);
+        if (mat.method === 'usd') {
+            document.getElementById('fullCalc').textContent = getFullCalcTextUSD(sec);
+            document.getElementById('momentCalc').textContent = getMomentTextUSD(sec);
+            document.getElementById('shearCalc').textContent = getShearTextUSD(sec);
+            document.getElementById('serviceCalc').textContent = getServiceTextUSD(sec);
+        } else {
+            document.getElementById('fullCalc').textContent = getFullCalcText(sec);
+            document.getElementById('momentCalc').textContent = getMomentText(sec);
+            document.getElementById('shearCalc').textContent = getShearText(sec);
+            document.getElementById('serviceCalc').textContent = getServiceText(sec);
+        }
 
         // Show modal
         document.getElementById('calcViewerModal').classList.add('show');
@@ -378,11 +400,18 @@ function exportToText() {
         allText.push('RC 단면 검토 계산서');
         allText.push('='.repeat(80));
         allText.push('');
+        allText.push(`설계법: ${mat.method === 'usd' ? '강도설계법 (도로교설계기준 2010)' : '한계상태설계법 (도로교설계기준 2012)'}`);
+        allText.push('');
         allText.push('재료 물성:');
         allText.push(`  - 콘크리트 설계기준강도 fck = ${mat.fck} MPa`);
         allText.push(`  - 철근 항복강도 fy = ${mat.fy} MPa`);
-        allText.push(`  - 콘크리트 강도감소계수 Øc = ${mat.Oc}`);
-        allText.push(`  - 철근 강도감소계수 Øs = ${mat.Os}`);
+        if (mat.method === 'usd') {
+            allText.push(`  - 휨 강도감소계수 φf = ${mat.phif}`);
+            allText.push(`  - 전단 강도감소계수 φv = ${mat.phiv}`);
+        } else {
+            allText.push(`  - 콘크리트 재료계수 Øc = ${mat.Oc}`);
+            allText.push(`  - 철근 재료계수 Øs = ${mat.Os}`);
+        }
         allText.push('');
 
         let sectionCount = 0;
@@ -391,21 +420,7 @@ function exportToText() {
             const rowData = getRowData(i);
             if (!rowData || rowData.H <= 0 || rowData.B <= 0) continue;
 
-            const datalist = [mat.fck, mat.fy];
-            const datalist1 = [mat.Oc, mat.Os];
-            const datalist2 = [rowData.H, rowData.B];
-            const datalist3 = [
-                Math.round(rowData.As_Dia), Math.round(rowData.As_Num), rowData.Dc,
-                0, 0, 0, 0, 0, 0
-            ];
-            const datalist4 = [
-                Math.round(rowData.Av_Dia), Math.round(rowData.Av_Leg), rowData.Av_Space,
-                3, 0, 90
-            ];
-            const datalist5 = [rowData.Mu, rowData.Vu, rowData.Nu, rowData.Ms, rowData.Ms, 1];
-
-            const sec = new SecBack(datalist, datalist1, datalist2, datalist3, datalist4, datalist5);
-            sec.delta = rowData.delta;
+            const sec = buildSection(mat, rowData);
             sec.calmoment();
             sec.calshear();
             sec.calservice();
@@ -415,7 +430,7 @@ function exportToText() {
             allText.push(`[${rowData.name}]`);
             allText.push('='.repeat(80));
             allText.push('');
-            allText.push(getFullCalcText(sec));
+            allText.push(fullCalcTextFor(mat, sec));
 
             sectionCount++;
         }
@@ -437,10 +452,14 @@ function exportToText() {
 function newFile() {
     if (confirm('모든 데이터를 초기화하시겠습니까?')) {
         // Reset material
+        document.getElementById('designMethod').value = 'lsd';
         document.getElementById('fck').value = '35';
         document.getElementById('fy').value = '400';
-        document.getElementById('Oc').value = '0.85';
-        document.getElementById('Os').value = '0.85';
+        document.getElementById('Oc').value = '0.65';
+        document.getElementById('Os').value = '0.90';
+        document.getElementById('phif').value = '0.85';
+        document.getElementById('phiv').value = '0.80';
+        updateMethodUI();
 
         // Reset spreadsheet
         const emptyData = [];
@@ -490,7 +509,7 @@ function saveFile() {
         }
 
         const data = {
-            version: '1.0',
+            version: '1.3',
             material: mat,
             sections: sections
         };
@@ -534,10 +553,14 @@ function handleFileOpen(e) {
 function loadData(data) {
     // Load material
     const mat = data.material || {};
+    document.getElementById('designMethod').value = mat.method || 'lsd';
     document.getElementById('fck').value = mat.fck || 35;
     document.getElementById('fy').value = mat.fy || 400;
-    document.getElementById('Oc').value = mat.Oc || 0.85;
-    document.getElementById('Os').value = mat.Os || 0.85;
+    document.getElementById('Oc').value = mat.Oc || 0.65;
+    document.getElementById('Os').value = mat.Os || 0.90;
+    document.getElementById('phif').value = mat.phif || 0.85;
+    document.getElementById('phiv').value = mat.phiv || 0.80;
+    updateMethodUI();
 
     // Prepare spreadsheet data
     const sheetData = [];
@@ -593,6 +616,15 @@ function updateStatus(message) {
 // Show release notes
 function showReleaseNotes() {
     const releaseContent = `# ESC_RCSEC WEB Release Notes
+
+## v1.3 (2026-07-08)
+- 설계법 선택 기능 추가 (한계상태설계법 / 강도설계법)
+- 강도설계법(도로교설계기준 2010) 휨·전단·사용성 검토 구현
+  · 등가응력블록 β1, φf·φv 강도감소계수, ρmax=0.75ρb
+  · Vc=(1/6)√fck·b·d, φVn=φ(Vc+Vs), 최소전단철근/간격 검토
+- Material 표에 φf(휨)·φv(전단) 입력칸 추가 (설계법에 따라 자동 전환)
+- 한계상태설계법 재료계수 기본값을 KDS 24 14 21 기준으로 변경 (Øc=0.65, Øs=0.90)
+- 저장 파일(.rcsec)에 설계법·φ 정보 포함 (version 1.3)
 
 ## v1.2 (2026-01-26)
 - Excel 스타일 스프레드시트 UI 적용 (jspreadsheet)

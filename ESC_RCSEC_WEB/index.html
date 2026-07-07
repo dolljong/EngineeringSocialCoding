@@ -71,6 +71,15 @@
             </div>
 
             <div class="tab-content" id="rc-section">
+                <!-- Design Method Section -->
+                <div class="section">
+                    <h3>설계법</h3>
+                    <select id="designMethod">
+                        <option value="lsd">한계상태설계법 (도로교설계기준 2012)</option>
+                        <option value="usd">강도설계법 (도로교설계기준 2010)</option>
+                    </select>
+                </div>
+
                 <!-- Material Section -->
                 <div class="section">
                     <h3>Material</h3>
@@ -79,16 +88,20 @@
                             <tr>
                                 <th title="콘크리트설계강도">fck(MPa)</th>
                                 <th title="철근항복강도">fy(MPa)</th>
-                                <th>Øc</th>
-                                <th>Øs</th>
+                                <th class="col-lsd" title="콘크리트 재료계수">Øc</th>
+                                <th class="col-lsd" title="철근 재료계수">Øs</th>
+                                <th class="col-usd" title="휨 강도감소계수">φf</th>
+                                <th class="col-usd" title="전단 강도감소계수">φv</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td><input type="number" id="fck" value="35" step="1"></td>
                                 <td><input type="number" id="fy" value="400" step="1"></td>
-                                <td><input type="number" id="Oc" value="0.85" step="0.01"></td>
-                                <td><input type="number" id="Os" value="0.85" step="0.01"></td>
+                                <td class="col-lsd"><input type="number" id="Oc" value="0.65" step="0.01"></td>
+                                <td class="col-lsd"><input type="number" id="Os" value="0.90" step="0.01"></td>
+                                <td class="col-usd"><input type="number" id="phif" value="0.85" step="0.01"></td>
+                                <td class="col-usd"><input type="number" id="phiv" value="0.80" step="0.01"></td>
                             </tr>
                         </tbody>
                     </table>
@@ -161,7 +174,9 @@
     <input type="file" id="fileInput" accept=".rcsec" style="display: none;">
 
     <script src="calculator.js"></script>
+    <script src="calculator_usd.js"></script>
     <script src="formatter.js"></script>
+    <script src="formatter_usd.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
